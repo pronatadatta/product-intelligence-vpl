@@ -147,19 +147,28 @@ function scoreProduct(productId, specs) {
 
 // ─── API calls ───────────────────────────────────────────────────────────────
 async function apiFetchSpecs(product) {
-  const res = await fetch('/api/fetch-specs', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      name: productName(product),
-      brand: product.brand,
-      model: product.model,
-      variant: product.variant,
-      size: product.size,
-    }),
-  })
-  if (!res.ok) throw new Error(`fetch-specs failed: ${res.status}`)
-  return res.json()
+  const payload = {
+    name: productName(product),
+    brand: product.brand,
+    model: product.model,
+    variant: product.variant,
+    size: product.size,
+  }
+  const call = async (noSearch) => {
+    const res = await fetch('/api/fetch-specs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...payload, noSearch }),
+    })
+    if (!res.ok) throw new Error(`fetch-specs failed: ${res.status}`)
+    return res.json()
+  }
+  try {
+    return await call(false)
+  } catch (err) {
+    console.warn(`Web-search fetch failed for ${payload.name}, retrying without search:`, err.message)
+    return await call(true)
+  }
 }
 
 async function apiBatchCheck(products, specName, specType) {
