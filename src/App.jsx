@@ -856,7 +856,7 @@ export default function App() {
   // ── Root render ─────────────────────────────────────────────────────────────
   return (
     <div className="flex flex-col h-dvh max-w-lg mx-auto bg-white dark:bg-gray-950 relative">
-      <InitScreen />
+      {InitScreen()}
 
       {/* Top bar */}
       <header className="px-4 py-3 flex items-center justify-between border-b border-gray-200 dark:border-gray-700 shrink-0">
@@ -879,9 +879,9 @@ export default function App() {
 
       {/* Main content */}
       <main className="flex-1 overflow-hidden relative">
-        {view === 'select' && <SelectView />}
-        {view === 'compare' && <CompareView />}
-        {view === 'add' && <AddView />}
+        {view === 'select' && SelectView()}
+        {view === 'compare' && CompareView()}
+        {view === 'add' && AddView()}
       </main>
 
       {/* Compare CTA (floats above bottom bar) */}
