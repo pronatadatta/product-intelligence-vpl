@@ -616,7 +616,7 @@ export default function App() {
   const loadAll = useCallback(async () => {
     const [{ data: prods }, { data: sp }, { data: cols }] = await Promise.all([
       supabase.from('products').select('*').order('brand').order('model'),
-      supabase.from('specs').select('*'),
+      supabase.from('specs').select('*').range(0, 49999),
       supabase.from('spec_columns').select('*'),
     ])
     setProducts(prods ?? [])
@@ -630,7 +630,7 @@ export default function App() {
     const ch = supabase
       .channel('db-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'specs' }, () => {
-        supabase.from('specs').select('*').then(({ data }) => setSpecs(data ?? []))
+        supabase.from('specs').select('*').range(0, 49999).then(({ data }) => setSpecs(data ?? []))
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => {
         supabase.from('products').select('*').order('brand').order('model').then(({ data }) => setProducts(data ?? []))
