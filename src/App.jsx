@@ -262,7 +262,7 @@ const SpecCell = memo(function SpecCell({ productId, category, specName, specTyp
   }
 
   return (
-    <td className={`px-3 py-2 text-center text-xs ${isMissing ? 'opacity-40' : ''}`}>
+    <td className={`px-3 py-2 text-center text-xs text-gray-900 dark:text-gray-100 ${isMissing ? 'opacity-40' : ''}`}>
       {val}
     </td>
   )
