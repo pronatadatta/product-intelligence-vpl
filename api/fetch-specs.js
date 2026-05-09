@@ -11,7 +11,7 @@ const SPEC_SCHEMA = `Return ONLY a JSON object with exactly these keys (no extra
   "Case Size": "<string or null>",
   "Case Material": "<string or null>",
   "Built-in Storage": "<string or null>",
-  "Built-in GPS": <true|false|null>,
+  "Built-in GPS": "<string or null — describe GPS capability, e.g. 'Yes (multi-band)', 'No', 'Connected GPS via phone'>",
   "Max Water Resistance": "<string or null>",
   "Usage Time (Battery)": "<string or null>",
   "Wireless Connectivity": "<string or null>",

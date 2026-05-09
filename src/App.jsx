@@ -23,7 +23,7 @@ const SPEC_CATEGORIES = [
     { name: 'Built-in Storage', type: 'text' },
   ]},
   { key: 'performance', label: 'Performance', specs: [
-    { name: 'Built-in GPS', type: 'boolean' },
+    { name: 'Built-in GPS', type: 'text' },
     { name: 'Max Water Resistance', type: 'text' },
     { name: 'Usage Time (Battery)', type: 'text' },
   ]},
