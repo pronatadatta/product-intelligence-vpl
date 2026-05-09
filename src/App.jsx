@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, memo } from 'react'
+import { useState, useEffect, useCallback, memo, Fragment } from 'react'
 import { createClient } from '@supabase/supabase-js'
 
 // ─── Supabase ────────────────────────────────────────────────────────────────
@@ -12,130 +12,47 @@ const BB_BLUE = '#0046BE'
 const MAX_COMPARE = 5
 
 const SPEC_CATEGORIES = [
-  {
-    key: 'display',
-    label: 'Display',
-    specs: [
-      { name: 'Screen Type', type: 'text' },
-      { name: 'Always-on Display', type: 'boolean' },
-      { name: 'Touchscreen', type: 'boolean' },
-    ],
-  },
-  {
-    key: 'durability',
-    label: 'Durability',
-    specs: [
-      { name: 'Water Resistance', type: 'text' },
-      { name: 'Build Material', type: 'text' },
-      { name: 'Scratch-resistant Glass', type: 'boolean' },
-      { name: 'Military-grade Certified', type: 'boolean' },
-    ],
-  },
-  {
-    key: 'gps',
-    label: 'GPS',
-    specs: [
-      { name: 'Built-in GPS', type: 'boolean' },
-      { name: 'Multi-band GPS', type: 'boolean' },
-      { name: 'Offline Maps', type: 'boolean' },
-    ],
-  },
-  {
-    key: 'battery',
-    label: 'Battery',
-    specs: [
-      { name: 'Daily Battery Life', type: 'text' },
-      { name: 'GPS Mode Battery Life', type: 'text' },
-      { name: 'Solar Charging', type: 'boolean' },
-    ],
-  },
-  {
-    key: 'health',
-    label: 'Health & Training',
-    specs: [
-      { name: 'Heart Rate Monitor', type: 'boolean' },
-      { name: 'Blood Oxygen / SpO2', type: 'boolean' },
-      { name: 'ECG', type: 'boolean' },
-      { name: 'Sleep Tracking', type: 'boolean' },
-      { name: 'Stress Tracking', type: 'boolean' },
-      { name: 'Skin Temperature', type: 'boolean' },
-      { name: 'Recovery Metrics', type: 'boolean' },
-    ],
-  },
-  {
-    key: 'sports',
-    label: 'Sports Modes',
-    specs: [
-      { name: 'Number of Sport Profiles', type: 'text' },
-      { name: 'Running', type: 'boolean' },
-      { name: 'Swimming', type: 'boolean' },
-      { name: 'Cycling', type: 'boolean' },
-      { name: 'Golf', type: 'boolean' },
-    ],
-  },
-  {
-    key: 'connectivity',
-    label: 'Connectivity',
-    specs: [
-      { name: 'Contactless Payments', type: 'boolean' },
-      { name: 'Music Storage', type: 'boolean' },
-      { name: 'Phone Notifications', type: 'boolean' },
-      { name: 'LTE / Cellular', type: 'boolean' },
-    ],
-  },
+  { key: 'display', label: 'Display', specs: [
+    { name: 'Display Type', type: 'text' },
+    { name: 'Screen Size', type: 'text' },
+    { name: 'Screen Material', type: 'text' },
+  ]},
+  { key: 'hardware', label: 'Hardware', specs: [
+    { name: 'Case Size', type: 'text' },
+    { name: 'Case Material', type: 'text' },
+    { name: 'Built-in Storage', type: 'text' },
+  ]},
+  { key: 'performance', label: 'Performance', specs: [
+    { name: 'Built-in GPS', type: 'boolean' },
+    { name: 'Max Water Resistance', type: 'text' },
+    { name: 'Usage Time (Battery)', type: 'text' },
+  ]},
+  { key: 'connectivity', label: 'Connectivity', specs: [
+    { name: 'Wireless Connectivity', type: 'text' },
+    { name: 'Voice Assistant', type: 'text' },
+  ]},
+  { key: 'health', label: 'Health', specs: [
+    { name: 'Sensors', type: 'text' },
+    { name: 'Metrics Measured', type: 'text' },
+  ]},
+  { key: 'misc', label: 'Misc', specs: [
+    { name: 'US Release Date', type: 'text' },
+  ]},
 ]
 
-const BUILT_IN_SPEC_NAMES = new Set(
-  SPEC_CATEGORIES.flatMap(c => c.specs.map(s => s.name)),
-)
-
-const INITIAL_CATALOG = [
-  { brand: 'Oura', model: 'Ring', variant: 'Titanium', category: 'Wearables' },
-  { brand: 'Oura', model: 'Ring', variant: 'Ceramic', category: 'Wearables' },
-  { brand: 'Garmin', model: 'Forerunner 165', variant: '', category: 'Wearables' },
-  { brand: 'Garmin', model: 'Forerunner 265', variant: '', category: 'Wearables' },
-  { brand: 'Garmin', model: 'Forerunner 570', variant: '', category: 'Wearables' },
-  { brand: 'Garmin', model: 'Forerunner 965', variant: '', category: 'Wearables' },
-  { brand: 'Garmin', model: 'Forerunner 970', variant: '', category: 'Wearables' },
-  { brand: 'Garmin', model: 'Instinct 3', variant: 'AMOLED', category: 'Wearables' },
-  { brand: 'Garmin', model: 'Instinct 3', variant: 'Solar', category: 'Wearables' },
-  { brand: 'Garmin', model: 'Instinct 3', variant: 'Tactical', category: 'Wearables' },
-  { brand: 'Garmin', model: 'Vivoactive 5', variant: '', category: 'Wearables' },
-  { brand: 'Garmin', model: 'Vivoactive 6', variant: '', category: 'Wearables' },
-  { brand: 'Garmin', model: 'Venu 3', variant: '', category: 'Wearables' },
-  { brand: 'Garmin', model: 'Venu 3S', variant: '', category: 'Wearables' },
-  { brand: 'Garmin', model: 'Venu 4', variant: '', category: 'Wearables' },
-  { brand: 'Garmin', model: 'Venu X1', variant: '', category: 'Wearables' },
-  { brand: 'Garmin', model: 'Fenix 8', variant: '', category: 'Wearables' },
-  { brand: 'Whoop', model: 'One', variant: '', category: 'Wearables' },
-  { brand: 'Whoop', model: 'Peak', variant: '', category: 'Wearables' },
-  { brand: 'Whoop', model: 'Life', variant: '', category: 'Wearables' },
-  { brand: 'Samsung', model: 'Watch 7', variant: '', category: 'Wearables' },
-  { brand: 'Samsung', model: 'Watch 8', variant: '', category: 'Wearables' },
-  { brand: 'Samsung', model: 'Watch 8 Classic', variant: '', category: 'Wearables' },
-  { brand: 'Samsung', model: 'Watch 8 Ultra', variant: '', category: 'Wearables' },
-  { brand: 'Samsung', model: 'Ring', variant: '', category: 'Wearables' },
-  { brand: 'Apple', model: 'Watch SE3', variant: '', category: 'Wearables' },
-  { brand: 'Apple', model: 'Watch Series 11', variant: '', category: 'Wearables' },
-  { brand: 'Apple', model: 'Watch Ultra 3', variant: '', category: 'Wearables' },
-  { brand: 'Amazfit', model: 'BIP 6', variant: '', category: 'Wearables' },
-  { brand: 'Amazfit', model: 'Active 2', variant: '', category: 'Wearables' },
-  { brand: 'Amazfit', model: 'Balance 2 XT', variant: '', category: 'Wearables' },
-  { brand: 'Amazfit', model: 'T-Rex 3', variant: '', category: 'Wearables' },
-  { brand: 'Amazfit', model: 'Band 7', variant: '', category: 'Wearables' },
-  { brand: 'Google', model: 'Pixel Watch', variant: '', category: 'Wearables' },
-  { brand: 'Google', model: 'Fitbit Inspire 3', variant: '', category: 'Wearables' },
-  { brand: 'Google', model: 'Fitbit Charge 6', variant: '', category: 'Wearables' },
-  { brand: 'Google', model: 'Fitbit Versa 4', variant: '', category: 'Wearables' },
-  { brand: 'Google', model: 'Fitbit Sense 2', variant: '', category: 'Wearables' },
-]
+const ALL_SPECS_FLAT = SPEC_CATEGORIES.flatMap(c => c.specs.map(s => ({ ...s, category: c.key })))
+const EMPTY_SPECS = Object.fromEntries(ALL_SPECS_FLAT.map(s => [s.name, '']))
+const EMPTY_FORM = {
+  brand: '', model: '', variant: '', size: '', colors: '', category: 'Wearables',
+  notes: '', ...EMPTY_SPECS,
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function productName(p) {
   return [p.brand, p.model, p.variant, p.size].filter(Boolean).join(' ')
 }
 
-// ─── API calls ───────────────────────────────────────────────────────────────
+// ─── API ─────────────────────────────────────────────────────────────────────
 async function apiFetchSpecs(product) {
   const payload = {
     name: productName(product),
@@ -161,79 +78,17 @@ async function apiFetchSpecs(product) {
   }
 }
 
-async function apiBatchCheck(products, specName, specType) {
-  const res = await fetch('/api/batch-check', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ products, specName, specType }),
-  })
-  if (!res.ok) throw new Error(`batch-check failed: ${res.status}`)
-  return res.json()
-}
-
-// ─── Supabase writes ─────────────────────────────────────────────────────────
-async function saveSpecsForProduct(productId, category, specsData) {
-  const rows = []
-  for (const [specName, value] of Object.entries(specsData)) {
-    if (value === undefined) continue
-    rows.push({
-      product_id: productId,
-      category,
-      spec_name: specName,
-      spec_value: value === null ? null : String(value),
-      verified: value !== null,
-    })
-  }
-  if (!rows.length) return
-  await supabase
-    .from('specs')
-    .upsert(rows, { onConflict: 'product_id,category,spec_name', ignoreDuplicates: false })
-}
-
-async function processAndSaveSpecs(productId, specsPayload) {
-  const categories = ['display', 'durability', 'gps', 'battery', 'health', 'sports', 'connectivity']
-  for (const key of categories) {
-    if (specsPayload[key]) await saveSpecsForProduct(productId, key, specsPayload[key])
-  }
-  if (specsPayload.extra_features?.length) {
-    for (const feat of specsPayload.extra_features) {
-      if (!feat.name || BUILT_IN_SPEC_NAMES.has(feat.name)) continue
-      const { data: existing } = await supabase
-        .from('spec_columns')
-        .select('id')
-        .eq('spec_name', feat.name)
-        .maybeSingle()
-      if (!existing) {
-        await supabase.from('spec_columns').insert({
-          category: 'extra',
-          spec_name: feat.name,
-          spec_type: feat.type ?? 'boolean',
-        })
-      }
-      await saveSpecsForProduct(productId, 'extra', { [feat.name]: feat.value })
-    }
-  }
-}
-
-// ─── Module-level components (stable references, no focus loss) ───────────────
+// ─── Module-level components (stable references) ────────────────────────────
 
 const SpecCell = memo(function SpecCell({ productId, category, specName, specType, isBenchmark, specs, fetchingIds }) {
   const s = specs.find(r => r.product_id === productId && r.category === category && r.spec_name === specName)
 
-  if (!s) {
+  if (!s || !s.verified || s.spec_value === null || s.spec_value === '') {
     return (
       <td className="px-3 py-2 text-center text-sm">
         {fetchingIds.has(productId)
           ? <span className="text-gray-400 animate-pulse">…</span>
           : <span className="text-gray-400">?</span>}
-      </td>
-    )
-  }
-
-  if (!s.verified || s.spec_value === null) {
-    return (
-      <td className="px-3 py-2 text-center text-sm">
-        <span className="text-gray-400">?</span>
       </td>
     )
   }
@@ -258,33 +113,45 @@ const SpecCell = memo(function SpecCell({ productId, category, specName, specTyp
   )
 })
 
-function InitScreen({ initProgress }) {
-  if (!initProgress) return null
-  const pct = Math.round((initProgress.current / initProgress.total) * 100)
+function SettingsModal({ apiAllowed, toggleApiAllowed, onClose }) {
   return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-white dark:bg-gray-950 p-8">
-      <div className="w-16 h-16 mb-6 flex items-center justify-center rounded-2xl" style={{ background: BB_BLUE }}>
-        <span className="text-white text-2xl font-bold">BB</span>
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center" onClick={onClose}>
+      <div
+        className="w-full max-w-md bg-white dark:bg-gray-900 rounded-t-2xl sm:rounded-2xl p-6 shadow-xl"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold text-gray-900 dark:text-white">Settings</h2>
+          <button onClick={onClose} className="text-gray-400 text-2xl leading-none">×</button>
+        </div>
+
+        <div className="flex items-center justify-between py-3 border-b border-gray-100 dark:border-gray-800">
+          <div className="flex-1 mr-4">
+            <p className="text-sm font-medium text-gray-900 dark:text-white">Allow API calls</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Enables Claude AI auto-fill on the product form and ↻ refresh in Compare. May incur Anthropic API costs.
+            </p>
+          </div>
+          <button
+            onClick={toggleApiAllowed}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors shrink-0 ${
+              apiAllowed ? '' : 'bg-gray-300 dark:bg-gray-700'
+            }`}
+            style={apiAllowed ? { background: BB_BLUE } : {}}
+          >
+            <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
+              apiAllowed ? 'translate-x-5' : 'translate-x-0.5'
+            }`} />
+          </button>
+        </div>
       </div>
-      <h1 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Setting up catalog…</h1>
-      <p className="text-sm text-gray-500 dark:text-gray-400 mb-6 text-center">
-        Fetching specs for {initProgress.total} products. This happens once.
-      </p>
-      <div className="w-full max-w-xs bg-gray-200 dark:bg-gray-800 rounded-full h-3 mb-2">
-        <div
-          className="h-3 rounded-full transition-all duration-500"
-          style={{ width: `${pct}%`, background: BB_BLUE }}
-        />
-      </div>
-      <p className="text-xs text-gray-400 mb-1">{pct}% — {initProgress.current} of {initProgress.total}</p>
-      <p className="text-xs text-gray-400 truncate max-w-xs">{initProgress.label}</p>
     </div>
   )
 }
 
 const SelectView = memo(function SelectView({
   search, setSearch, categoryFilter, setCategoryFilter,
-  selected, setSelected, toggleSelect, setView,
+  selected, setSelected, toggleSelect, openEdit,
   filteredProducts, brands, specs, fetchingIds,
 }) {
   return (
@@ -337,26 +204,38 @@ const SelectView = memo(function SelectView({
                 const isFetching = fetchingIds.has(product.id)
                 const hasSpecs = specs.some(s => s.product_id === product.id && s.verified)
                 return (
-                  <button
+                  <div
                     key={product.id}
-                    onClick={() => toggleSelect(product.id)}
-                    className={`flex items-center justify-between rounded-xl px-4 py-3 border transition-all text-left ${
+                    className={`flex items-center justify-between rounded-xl px-4 py-3 border transition-all ${
                       isSelected
                         ? 'border-transparent text-white'
                         : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white'
                     }`}
                     style={isSelected ? { background: BB_BLUE, borderColor: BB_BLUE } : {}}
                   >
-                    <div>
-                      <p className="text-sm font-medium">{product.model}{product.variant ? ` — ${product.variant}` : ''}</p>
+                    <button
+                      type="button"
+                      onClick={() => toggleSelect(product.id)}
+                      className="flex-1 text-left min-w-0"
+                    >
+                      <p className="text-sm font-medium truncate">{product.model}{product.variant ? ` — ${product.variant}` : ''}</p>
                       {product.size && <p className={`text-xs mt-0.5 ${isSelected ? 'text-white/70' : 'text-gray-400'}`}>{product.size}</p>}
-                    </div>
-                    <div className="flex items-center gap-2">
+                    </button>
+                    <div className="flex items-center gap-3 ml-2 shrink-0">
                       {isFetching && <span className={`text-xs animate-pulse ${isSelected ? 'text-white/70' : 'text-gray-400'}`}>syncing…</span>}
                       {!hasSpecs && !isFetching && <span className={`text-xs ${isSelected ? 'text-white/70' : 'text-gray-400'}`}>?</span>}
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); openEdit(product.id) }}
+                        className={`text-base px-1 ${isSelected ? 'text-white/80 hover:text-white' : 'text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}
+                        title="Edit product"
+                        aria-label="Edit product"
+                      >
+                        ✎
+                      </button>
                       {isSelected && <span className="text-white text-lg leading-none">✓</span>}
                     </div>
-                  </button>
+                  </div>
                 )
               })}
             </div>
@@ -367,17 +246,14 @@ const SelectView = memo(function SelectView({
   )
 })
 
-function CompareView({ selectedProducts, benchmarkId, toggleBenchmark, specs, specColumns, extraSpecsInView, collapsedSections, setCollapsedSections, fetchingIds, refreshProduct, setView, fillGaps, gapFillProgress }) {
+function CompareView({
+  selectedProducts, benchmarkId, toggleBenchmark, specs,
+  collapsedSections, setCollapsedSections, fetchingIds,
+  refreshProduct, setView, apiAllowed,
+}) {
   const ordered = [
     ...selectedProducts.filter(p => p.id === benchmarkId),
     ...selectedProducts.filter(p => p.id !== benchmarkId),
-  ]
-
-  const allCategories = [
-    ...SPEC_CATEGORIES,
-    ...(extraSpecsInView.length
-      ? [{ key: 'extra', label: 'Extra Features', specs: extraSpecsInView.map(c => ({ name: c.spec_name, type: c.spec_type })) }]
-      : []),
   ]
 
   return (
@@ -389,22 +265,8 @@ function CompareView({ selectedProducts, benchmarkId, toggleBenchmark, specs, sp
         <span className="text-sm font-semibold text-gray-900 dark:text-white flex-1 text-center">
           Compare ({ordered.length})
         </span>
-        <button
-          onClick={fillGaps}
-          disabled={!!gapFillProgress}
-          className="text-xs font-medium disabled:opacity-50"
-          style={{ color: BB_BLUE }}
-        >
-          {gapFillProgress ? `${gapFillProgress.current}/${gapFillProgress.total}` : 'Fill gaps'}
-        </button>
+        <div className="w-12" />
       </div>
-      {gapFillProgress && (
-        <div className="px-4 py-1.5 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
-          <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate">
-            Checking: {gapFillProgress.label}
-          </p>
-        </div>
-      )}
 
       <div className="flex-1 overflow-auto spec-table-scroll">
         <table className="min-w-max w-full border-collapse text-sm">
@@ -429,8 +291,11 @@ function CompareView({ selectedProducts, benchmarkId, toggleBenchmark, specs, sp
                       {p.model}{p.variant ? ` ${p.variant}` : ''}
                     </span>
                     <button
-                      onClick={(e) => { e.stopPropagation(); refreshProduct(p) }}
-                      className="text-[10px] text-gray-400 hover:text-gray-600 mt-0.5"
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); if (apiAllowed) refreshProduct(p) }}
+                      disabled={!apiAllowed}
+                      className={`text-[10px] mt-0.5 ${apiAllowed ? 'text-gray-400 hover:text-gray-600' : 'text-gray-300 dark:text-gray-700 cursor-not-allowed'}`}
+                      title={apiAllowed ? 'Re-fetch via API' : 'Enable API in settings to use'}
                     >
                       {fetchingIds.has(p.id) ? '⟳ syncing…' : '↻ refresh'}
                     </button>
@@ -440,11 +305,11 @@ function CompareView({ selectedProducts, benchmarkId, toggleBenchmark, specs, sp
             </tr>
           </thead>
           <tbody>
-            {allCategories.map(cat => {
+            {SPEC_CATEGORIES.map(cat => {
               const isCollapsed = collapsedSections[cat.key]
               return (
-                <>
-                  <tr key={`cat-${cat.key}`}>
+                <Fragment key={cat.key}>
+                  <tr>
                     <td
                       colSpan={ordered.length + 1}
                       className="bg-gray-50 dark:bg-gray-900 px-3 py-2 cursor-pointer select-none"
@@ -477,7 +342,7 @@ function CompareView({ selectedProducts, benchmarkId, toggleBenchmark, specs, sp
                       ))}
                     </tr>
                   ))}
-                </>
+                </Fragment>
               )
             })}
           </tbody>
@@ -487,24 +352,104 @@ function CompareView({ selectedProducts, benchmarkId, toggleBenchmark, specs, sp
   )
 }
 
-function AddView({ setView, products, addForm, setAddForm, handleAddProduct, addError, addSaving }) {
+function ProductForm({ setView, editProductId, products, specs, apiAllowed, saveProduct }) {
+  const isEdit = !!editProductId
+
+  const [formData, setFormData] = useState(() => {
+    if (editProductId) {
+      const p = products.find(x => x.id === editProductId)
+      if (p) {
+        const productSpecs = specs.filter(s => s.product_id === editProductId && s.verified)
+        const specMap = Object.fromEntries(productSpecs.map(s => [s.spec_name, s.spec_value ?? '']))
+        return {
+          brand: p.brand ?? '',
+          model: p.model ?? '',
+          variant: p.variant ?? '',
+          size: p.size ?? '',
+          colors: p.colors ?? '',
+          category: p.category ?? 'Wearables',
+          notes: '',
+          ...EMPTY_SPECS,
+          ...specMap,
+        }
+      }
+    }
+    return EMPTY_FORM
+  })
+
+  const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [autoFilling, setAutoFilling] = useState(false)
+  const [collapsed, setCollapsed] = useState({})
+
+  const isWearable = formData.category === 'Wearables'
+  const canAutoFill = apiAllowed && !autoFilling && formData.brand.trim() && formData.model.trim()
+
+  const handleAutoFill = useCallback(async () => {
+    if (!canAutoFill) return
+    setAutoFilling(true)
+    setError('')
+    try {
+      const { specs: fetched } = await apiFetchSpecs({
+        brand: formData.brand,
+        model: formData.model,
+        variant: formData.variant,
+        size: formData.size,
+      })
+      setFormData(prev => {
+        const updated = { ...prev }
+        for (const spec of ALL_SPECS_FLAT) {
+          const existing = prev[spec.name]
+          const newVal = fetched[spec.name]
+          if ((existing === '' || existing == null) && newVal !== undefined && newVal !== null) {
+            updated[spec.name] = String(newVal)
+          }
+        }
+        return updated
+      })
+    } catch (err) {
+      setError(`Auto-fill failed: ${err.message}`)
+    } finally {
+      setAutoFilling(false)
+    }
+  }, [canAutoFill, formData.brand, formData.model, formData.variant, formData.size])
+
+  async function onSubmit(e) {
+    e.preventDefault()
+    setError('')
+    if (!formData.brand.trim() || !formData.model.trim()) {
+      setError('Brand and Model are required.')
+      return
+    }
+    setSaving(true)
+    try {
+      await saveProduct(formData, editProductId)
+    } catch (err) {
+      setError(err.message)
+      setSaving(false)
+    }
+  }
+
   const existingBrands = [...new Set(products.map(p => p.brand))].sort()
+
   return (
     <div className="flex flex-col h-full">
       <div className="px-4 py-3 flex items-center gap-3 border-b border-gray-200 dark:border-gray-700">
         <button onClick={() => setView('select')} className="text-sm font-medium" style={{ color: BB_BLUE }}>
           ← Cancel
         </button>
-        <span className="text-sm font-semibold text-gray-900 dark:text-white flex-1 text-center">Add Product</span>
+        <span className="text-sm font-semibold text-gray-900 dark:text-white flex-1 text-center">
+          {isEdit ? 'Edit Product' : 'Add Product'}
+        </span>
         <div className="w-16" />
       </div>
 
-      <form onSubmit={handleAddProduct} className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4 pb-32">
+      <form onSubmit={onSubmit} className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4 pb-32">
         <div>
           <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Category</label>
           <select
-            value={addForm.category}
-            onChange={e => setAddForm(f => ({ ...f, category: e.target.value }))}
+            value={formData.category}
+            onChange={e => setFormData(f => ({ ...f, category: e.target.value }))}
             className="w-full rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 py-3 text-sm text-gray-900 dark:text-white focus:outline-none"
           >
             <option>Wearables</option>
@@ -517,8 +462,8 @@ function AddView({ setView, products, addForm, setAddForm, handleAddProduct, add
           <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Brand</label>
           <input
             list="brand-options"
-            value={addForm.brand}
-            onChange={e => setAddForm(f => ({ ...f, brand: e.target.value }))}
+            value={formData.brand}
+            onChange={e => setFormData(f => ({ ...f, brand: e.target.value }))}
             placeholder="e.g. Garmin"
             className="w-full rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 py-3 text-sm text-gray-900 dark:text-white focus:outline-none"
             required
@@ -531,53 +476,136 @@ function AddView({ setView, products, addForm, setAddForm, handleAddProduct, add
         <div>
           <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Model</label>
           <input
-            value={addForm.model}
-            onChange={e => setAddForm(f => ({ ...f, model: e.target.value }))}
+            value={formData.model}
+            onChange={e => setFormData(f => ({ ...f, model: e.target.value }))}
             placeholder="e.g. Fenix 9"
             className="w-full rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 py-3 text-sm text-gray-900 dark:text-white focus:outline-none"
             required
           />
         </div>
 
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Variant</label>
+            <input
+              value={formData.variant}
+              onChange={e => setFormData(f => ({ ...f, variant: e.target.value }))}
+              placeholder="Solar, Titanium…"
+              className="w-full rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 py-3 text-sm text-gray-900 dark:text-white focus:outline-none"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Size</label>
+            <input
+              value={formData.size}
+              onChange={e => setFormData(f => ({ ...f, size: e.target.value }))}
+              placeholder="47mm"
+              className="w-full rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 py-3 text-sm text-gray-900 dark:text-white focus:outline-none"
+            />
+          </div>
+        </div>
+
         <div>
-          <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Variant <span className="font-normal text-gray-400">(optional)</span></label>
+          <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Colors <span className="font-normal text-gray-400">(optional)</span></label>
           <input
-            value={addForm.variant}
-            onChange={e => setAddForm(f => ({ ...f, variant: e.target.value }))}
-            placeholder="e.g. Solar, Titanium"
+            value={formData.colors}
+            onChange={e => setFormData(f => ({ ...f, colors: e.target.value }))}
+            placeholder="Black, Silver"
             className="w-full rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 py-3 text-sm text-gray-900 dark:text-white focus:outline-none"
           />
         </div>
 
-        <div>
-          <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Size <span className="font-normal text-gray-400">(optional)</span></label>
-          <input
-            value={addForm.size}
-            onChange={e => setAddForm(f => ({ ...f, size: e.target.value }))}
-            placeholder="e.g. 47mm"
-            className="w-full rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 py-3 text-sm text-gray-900 dark:text-white focus:outline-none"
-          />
-        </div>
+        {isWearable ? (
+          <>
+            <div className="border-t border-gray-200 dark:border-gray-700 pt-4 -mx-4 px-4">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Specifications</h3>
+                <button
+                  type="button"
+                  onClick={handleAutoFill}
+                  disabled={!canAutoFill}
+                  className={`text-xs px-3 py-1.5 rounded-full font-medium transition-colors ${
+                    canAutoFill ? 'text-white' : 'bg-gray-200 dark:bg-gray-800 text-gray-400 cursor-not-allowed'
+                  }`}
+                  style={canAutoFill ? { background: BB_BLUE } : {}}
+                  title={
+                    !apiAllowed ? 'Enable API in settings to use'
+                    : !formData.brand.trim() || !formData.model.trim() ? 'Enter brand and model first'
+                    : 'Fill empty fields via Claude AI'
+                  }
+                >
+                  {autoFilling ? 'Fetching…' : 'Auto-fill via API'}
+                </button>
+              </div>
+              {!apiAllowed && (
+                <p className="text-xs text-gray-400 mb-2">Enable API in ⚙ settings to use auto-fill.</p>
+              )}
+            </div>
 
-        <div>
-          <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Colors <span className="font-normal text-gray-400">(optional, comma-separated)</span></label>
-          <input
-            value={addForm.colors}
-            onChange={e => setAddForm(f => ({ ...f, colors: e.target.value }))}
-            placeholder="e.g. Black, Silver, Rose Gold"
-            className="w-full rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 py-3 text-sm text-gray-900 dark:text-white focus:outline-none"
-          />
-        </div>
+            {SPEC_CATEGORIES.map(cat => {
+              const isOpen = !collapsed[cat.key]
+              return (
+                <div key={cat.key} className="border border-gray-200 dark:border-gray-700 rounded-xl">
+                  <button
+                    type="button"
+                    onClick={() => setCollapsed(prev => ({ ...prev, [cat.key]: !prev[cat.key] }))}
+                    className="w-full px-4 py-3 flex items-center justify-between text-left"
+                  >
+                    <span className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{cat.label}</span>
+                    <span className="text-gray-400 text-xs">{isOpen ? '▼' : '▶'}</span>
+                  </button>
+                  {isOpen && (
+                    <div className="px-4 pb-4 flex flex-col gap-3">
+                      {cat.specs.map(spec => (
+                        <div key={spec.name}>
+                          <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{spec.name}</label>
+                          {spec.type === 'boolean' ? (
+                            <select
+                              value={formData[spec.name] ?? ''}
+                              onChange={e => setFormData(f => ({ ...f, [spec.name]: e.target.value }))}
+                              className="w-full rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 py-3 text-sm text-gray-900 dark:text-white focus:outline-none"
+                            >
+                              <option value="">—</option>
+                              <option value="true">Yes</option>
+                              <option value="false">No</option>
+                            </select>
+                          ) : (
+                            <input
+                              value={formData[spec.name] ?? ''}
+                              onChange={e => setFormData(f => ({ ...f, [spec.name]: e.target.value }))}
+                              className="w-full rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 py-3 text-sm text-gray-900 dark:text-white focus:outline-none"
+                            />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </>
+        ) : (
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Notes</label>
+            <textarea
+              value={formData.notes}
+              onChange={e => setFormData(f => ({ ...f, notes: e.target.value }))}
+              placeholder="Spec fields are not yet defined for this category."
+              rows={4}
+              className="w-full rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 py-3 text-sm text-gray-900 dark:text-white focus:outline-none"
+            />
+          </div>
+        )}
 
-        {addError && <p className="text-sm text-red-500">{addError}</p>}
+        {error && <p className="text-sm text-red-500">{error}</p>}
 
         <button
           type="submit"
-          disabled={addSaving}
+          disabled={saving}
           className="w-full rounded-xl py-3.5 text-sm font-semibold text-white transition-opacity disabled:opacity-60"
           style={{ background: BB_BLUE }}
         >
-          {addSaving ? 'Saving & fetching specs…' : 'Add Product'}
+          {saving ? 'Saving…' : isEdit ? 'Save Changes' : 'Add Product'}
         </button>
       </form>
     </div>
@@ -587,35 +615,30 @@ function AddView({ setView, products, addForm, setAddForm, handleAddProduct, add
 // ─── Main App ─────────────────────────────────────────────────────────────────
 export default function App() {
   const [view, setView] = useState('select')
+  const [editProductId, setEditProductId] = useState(null)
   const [products, setProducts] = useState([])
   const [specs, setSpecs] = useState([])
-  const [specColumns, setSpecColumns] = useState([])
   const [selected, setSelected] = useState([])
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('Wearables')
   const [collapsedSections, setCollapsedSections] = useState({})
   const [fetchingIds, setFetchingIds] = useState(new Set())
-  const [initProgress, setInitProgress] = useState(null)
-  const [gapFillProgress, setGapFillProgress] = useState(null)
   const [benchmarkId, setBenchmarkId] = useState(null)
-  const [addForm, setAddForm] = useState({ category: 'Wearables', brand: '', model: '', variant: '', size: '', colors: '' })
-  const [addError, setAddError] = useState('')
-  const [addSaving, setAddSaving] = useState(false)
-  const initRef = useRef(false)
+  const [apiAllowed, setApiAllowed] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
 
-  // ── Load data ──────────────────────────────────────────────────────────────
   const loadAll = useCallback(async () => {
-    const [{ data: prods }, { data: sp }, { data: cols }] = await Promise.all([
+    const [{ data: prods }, { data: sp }, { data: state }] = await Promise.all([
       supabase.from('products').select('*').order('brand').order('model'),
       supabase.from('specs').select('*').range(0, 49999),
-      supabase.from('spec_columns').select('*'),
+      supabase.from('app_state').select('*'),
     ])
     setProducts(prods ?? [])
     setSpecs(sp ?? [])
-    setSpecColumns(cols ?? [])
+    const apiState = (state ?? []).find(s => s.key === 'allow_api_calls')
+    setApiAllowed(apiState?.value === 'true')
   }, [])
 
-  // ── Realtime subscription ──────────────────────────────────────────────────
   useEffect(() => {
     loadAll()
     const ch = supabase
@@ -626,133 +649,41 @@ export default function App() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => {
         supabase.from('products').select('*').order('brand').order('model').then(({ data }) => setProducts(data ?? []))
       })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'spec_columns' }, () => {
-        supabase.from('spec_columns').select('*').then(({ data }) => setSpecColumns(data ?? []))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'app_state' }, payload => {
+        if (payload.new?.key === 'allow_api_calls') {
+          setApiAllowed(payload.new.value === 'true')
+        }
       })
       .subscribe()
     return () => supabase.removeChannel(ch)
   }, [loadAll])
 
-  // ── First-launch initialization ────────────────────────────────────────────
-  useEffect(() => {
-    if (initRef.current) return
-    initRef.current = true
-
-    async function initialize() {
-      const { data: state } = await supabase
-        .from('app_state')
-        .select('value')
-        .eq('key', 'catalog_initialized')
-        .maybeSingle()
-
-      if (state?.value === 'true') return
-
-      const toInsert = INITIAL_CATALOG.map(p => ({
-        name: [p.brand, p.model, p.variant].filter(Boolean).join(' '),
-        brand: p.brand,
-        model: p.model,
-        variant: p.variant || null,
-        size: null,
-        colors: null,
-        category: p.category,
-      }))
-
-      await supabase.from('products').upsert(toInsert, { onConflict: 'name', ignoreDuplicates: true })
-
-      const { data: allProds } = await supabase.from('products').select('*')
-      const { data: existingSpecs } = await supabase.from('specs').select('product_id')
-      const fetchedIds = new Set((existingSpecs ?? []).map(s => s.product_id))
-      const prodsWithNoSpecs = (allProds ?? []).filter(p => !fetchedIds.has(p.id))
-
-      if (!prodsWithNoSpecs.length) {
-        await supabase.from('app_state').upsert({ key: 'catalog_initialized', value: 'true' })
-        return
-      }
-
-      setInitProgress({ current: 0, total: prodsWithNoSpecs.length, label: '' })
-
-      for (let i = 0; i < prodsWithNoSpecs.length; i++) {
-        const prod = prodsWithNoSpecs[i]
-        setInitProgress({ current: i + 1, total: prodsWithNoSpecs.length, label: productName(prod) })
-        try {
-          const { specs: fetched } = await apiFetchSpecs(prod)
-          await processAndSaveSpecs(prod.id, fetched)
-        } catch (err) {
-          console.warn(`Failed to fetch specs for ${productName(prod)}:`, err)
-        }
-      }
-
-      await supabase.from('app_state').upsert({ key: 'catalog_initialized', value: 'true' })
-      setInitProgress(null)
-    }
-
-    initialize()
-  }, [])
-
-  // ── Handlers ───────────────────────────────────────────────────────────────
   const refreshProduct = useCallback(async (product) => {
+    if (!apiAllowed) return
     setFetchingIds(prev => new Set([...prev, product.id]))
     try {
       const { specs: fetched } = await apiFetchSpecs(product)
-      await processAndSaveSpecs(product.id, fetched)
+      const rows = []
+      for (const spec of ALL_SPECS_FLAT) {
+        if (fetched[spec.name] === undefined) continue
+        const val = fetched[spec.name]
+        rows.push({
+          product_id: product.id,
+          category: spec.category,
+          spec_name: spec.name,
+          spec_value: val === null ? null : String(val),
+          verified: val !== null,
+        })
+      }
+      if (rows.length) {
+        await supabase.from('specs').upsert(rows, { onConflict: 'product_id,category,spec_name', ignoreDuplicates: false })
+      }
     } catch (err) {
       console.error('refresh error:', err)
     } finally {
       setFetchingIds(prev => { const s = new Set(prev); s.delete(product.id); return s })
     }
-  }, [])
-
-  const fillGaps = useCallback(async () => {
-    const sel = products.filter(p => selected.includes(p.id))
-    if (!sel.length) return
-
-    const extraCols = specColumns.filter(c => c.category === 'extra')
-    const allCats = [
-      ...SPEC_CATEGORIES,
-      ...(extraCols.length
-        ? [{ key: 'extra', label: 'Extra Features', specs: extraCols.map(c => ({ name: c.spec_name, type: c.spec_type })) }]
-        : []),
-    ]
-
-    const work = []
-    for (const cat of allCats) {
-      for (const spec of cat.specs) {
-        const missing = sel.filter(p => {
-          const s = specs.find(r => r.product_id === p.id && r.category === cat.key && r.spec_name === spec.name)
-          return !s || !s.verified || s.spec_value === null
-        })
-        if (missing.length) work.push({ cat, spec, missing })
-      }
-    }
-
-    if (!work.length) return
-
-    setGapFillProgress({ current: 0, total: work.length, label: '' })
-    for (let i = 0; i < work.length; i++) {
-      const { cat, spec, missing } = work[i]
-      setGapFillProgress({ current: i + 1, total: work.length, label: spec.name })
-      try {
-        const { results } = await apiBatchCheck(
-          missing.map(p => ({ id: p.id, name: productName(p) })),
-          spec.name,
-          spec.type,
-        )
-        const rows = Object.entries(results).map(([pid, val]) => ({
-          product_id: pid,
-          category: cat.key,
-          spec_name: spec.name,
-          spec_value: val === null ? null : String(val),
-          verified: val !== null,
-        }))
-        if (rows.length) {
-          await supabase.from('specs').upsert(rows, { onConflict: 'product_id,category,spec_name', ignoreDuplicates: false })
-        }
-      } catch (err) {
-        console.warn(`Fill gaps error for ${spec.name}:`, err)
-      }
-    }
-    setGapFillProgress(null)
-  }, [products, selected, specs, specColumns])
+  }, [apiAllowed])
 
   const toggleSelect = useCallback((id) => {
     setSelected(prev => {
@@ -762,71 +693,86 @@ export default function App() {
     })
   }, [])
 
-  const handleAddProduct = useCallback(async (e) => {
-    e.preventDefault()
-    setAddError('')
-    if (!addForm.brand.trim() || !addForm.model.trim()) {
-      setAddError('Brand and Model are required.')
-      return
-    }
-    setAddSaving(true)
-    try {
-      const name = [addForm.brand, addForm.model, addForm.variant].filter(Boolean).join(' ')
-      const { data: prod, error } = await supabase
-        .from('products')
-        .insert({
-          name,
-          brand: addForm.brand.trim(),
-          model: addForm.model.trim(),
-          variant: addForm.variant.trim() || null,
-          size: addForm.size.trim() || null,
-          colors: addForm.colors.trim() || null,
-          category: addForm.category,
-        })
-        .select()
-        .single()
-      if (error) throw error
-      setAddForm({ category: 'Wearables', brand: '', model: '', variant: '', size: '', colors: '' })
-      setView('select')
-      apiFetchSpecs(prod)
-        .then(({ specs: fetched }) => processAndSaveSpecs(prod.id, fetched))
-        .catch(console.error)
-    } catch (err) {
-      setAddError(err.message)
-    } finally {
-      setAddSaving(false)
-    }
-  }, [addForm])
+  const toggleBenchmark = useCallback((id) => {
+    setBenchmarkId(prev => prev === id ? null : id)
+  }, [])
 
-  // ── Derived data ───────────────────────────────────────────────────────────
+  const openEdit = useCallback((id) => {
+    setEditProductId(id)
+    setView('edit')
+  }, [])
+
+  const toggleApiAllowed = useCallback(async () => {
+    const newVal = !apiAllowed
+    setApiAllowed(newVal)
+    await supabase.from('app_state').upsert({ key: 'allow_api_calls', value: String(newVal) })
+  }, [apiAllowed])
+
+  const saveProduct = useCallback(async (formData, productId) => {
+    const productData = {
+      name: [formData.brand, formData.model, formData.variant].filter(Boolean).join(' '),
+      brand: formData.brand.trim(),
+      model: formData.model.trim(),
+      variant: formData.variant.trim() || null,
+      size: formData.size.trim() || null,
+      colors: formData.colors.trim() || null,
+      category: formData.category,
+    }
+
+    let id = productId
+    if (productId) {
+      const { error } = await supabase.from('products').update(productData).eq('id', productId)
+      if (error) throw error
+    } else {
+      const { data, error } = await supabase.from('products').insert(productData).select().single()
+      if (error) throw error
+      id = data.id
+    }
+
+    if (formData.category === 'Wearables') {
+      const upserts = []
+      const deletes = []
+      for (const spec of ALL_SPECS_FLAT) {
+        const val = formData[spec.name]
+        if (val === '' || val === null || val === undefined) {
+          deletes.push({ category: spec.category, spec_name: spec.name })
+        } else {
+          upserts.push({
+            product_id: id,
+            category: spec.category,
+            spec_name: spec.name,
+            spec_value: String(val),
+            verified: true,
+          })
+        }
+      }
+      if (upserts.length) {
+        await supabase.from('specs').upsert(upserts, { onConflict: 'product_id,category,spec_name', ignoreDuplicates: false })
+      }
+      if (productId && deletes.length) {
+        await Promise.all(deletes.map(d =>
+          supabase.from('specs').delete()
+            .eq('product_id', id).eq('category', d.category).eq('spec_name', d.spec_name)
+        ))
+      }
+    }
+
+    setEditProductId(null)
+    setView('select')
+  }, [])
+
   const filteredProducts = products.filter(p => {
     const matchCat = !categoryFilter || p.category === categoryFilter
     const q = search.toLowerCase()
     const matchSearch = !q || productName(p).toLowerCase().includes(q) || p.brand.toLowerCase().includes(q)
     return matchCat && matchSearch
   })
-
   const brands = [...new Set(filteredProducts.map(p => p.brand))].sort()
-
   const selectedProducts = products.filter(p => selected.includes(p.id))
-
   const effectiveBenchmarkId = benchmarkId && selected.includes(benchmarkId) ? benchmarkId : null
 
-  const toggleBenchmark = useCallback((id) => {
-    setBenchmarkId(prev => prev === id ? null : id)
-  }, [])
-
-  const extraSpecsInView = specColumns.filter(col =>
-    selectedProducts.some(p =>
-      specs.some(s => s.product_id === p.id && s.category === 'extra' && s.spec_name === col.spec_name),
-    ),
-  )
-
-  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="flex flex-col h-dvh max-w-lg mx-auto bg-white dark:bg-gray-950 relative">
-      <InitScreen initProgress={initProgress} />
-
       <header className="px-4 py-3 flex items-center justify-between border-b border-gray-200 dark:border-gray-700 shrink-0">
         <div className="flex items-center gap-2">
           <span className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold" style={{ background: BB_BLUE }}>
@@ -834,11 +780,22 @@ export default function App() {
           </span>
           <span className="text-sm font-bold text-gray-900 dark:text-white">VPL Tool</span>
         </div>
-        {view === 'select' && (
-          <button onClick={() => setView('add')} className="text-sm font-medium" style={{ color: BB_BLUE }}>
-            + Add
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setShowSettings(true)}
+            className="text-lg leading-none text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white"
+            title="Settings"
+            aria-label="Settings"
+          >
+            ⚙
           </button>
-        )}
+          {view === 'select' && (
+            <button onClick={() => { setEditProductId(null); setView('add') }} className="text-sm font-medium" style={{ color: BB_BLUE }}>
+              + Add
+            </button>
+          )}
+        </div>
       </header>
 
       <main className="flex-1 overflow-hidden relative">
@@ -851,7 +808,7 @@ export default function App() {
             selected={selected}
             setSelected={setSelected}
             toggleSelect={toggleSelect}
-            setView={setView}
+            openEdit={openEdit}
             filteredProducts={filteredProducts}
             brands={brands}
             specs={specs}
@@ -864,26 +821,23 @@ export default function App() {
             benchmarkId={effectiveBenchmarkId}
             toggleBenchmark={toggleBenchmark}
             specs={specs}
-            specColumns={specColumns}
-            extraSpecsInView={extraSpecsInView}
             collapsedSections={collapsedSections}
             setCollapsedSections={setCollapsedSections}
             fetchingIds={fetchingIds}
             refreshProduct={refreshProduct}
             setView={setView}
-            fillGaps={fillGaps}
-            gapFillProgress={gapFillProgress}
+            apiAllowed={apiAllowed}
           />
         )}
-        {view === 'add' && (
-          <AddView
+        {(view === 'add' || view === 'edit') && (
+          <ProductForm
+            key={editProductId ?? 'new'}
             setView={setView}
+            editProductId={editProductId}
             products={products}
-            addForm={addForm}
-            setAddForm={setAddForm}
-            handleAddProduct={handleAddProduct}
-            addError={addError}
-            addSaving={addSaving}
+            specs={specs}
+            apiAllowed={apiAllowed}
+            saveProduct={saveProduct}
           />
         )}
       </main>
@@ -905,14 +859,22 @@ export default function App() {
           className="flex-1 flex flex-col items-center py-2 gap-0.5"
           onClick={() => { setView('select'); setSelected([]) }}
         >
-          <span className="text-lg" style={{ color: view !== 'add' ? BB_BLUE : '#9ca3af' }}>⊞</span>
-          <span className="text-[10px] font-semibold" style={{ color: view !== 'add' ? BB_BLUE : '#9ca3af' }}>Compare</span>
+          <span className="text-lg" style={{ color: view !== 'add' && view !== 'edit' ? BB_BLUE : '#9ca3af' }}>⊞</span>
+          <span className="text-[10px] font-semibold" style={{ color: view !== 'add' && view !== 'edit' ? BB_BLUE : '#9ca3af' }}>Compare</span>
         </button>
         <button className="flex-1 flex flex-col items-center py-2 gap-0.5 opacity-40" disabled>
           <span className="text-lg text-gray-400">◎</span>
           <span className="text-[10px] font-semibold text-gray-400">Tracker</span>
         </button>
       </nav>
+
+      {showSettings && (
+        <SettingsModal
+          apiAllowed={apiAllowed}
+          toggleApiAllowed={toggleApiAllowed}
+          onClose={() => setShowSettings(false)}
+        />
+      )}
     </div>
   )
 }

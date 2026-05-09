@@ -5,58 +5,23 @@ const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 const SPEC_SCHEMA = `Return ONLY a JSON object with exactly these keys (no extras). Use null for unknown/not applicable.
 
 {
-  "display": {
-    "Screen Type": "<string or null>",
-    "Always-on Display": <true|false|null>,
-    "Touchscreen": <true|false|null>
-  },
-  "durability": {
-    "Water Resistance": "<string or null>",
-    "Build Material": "<string or null>",
-    "Scratch-resistant Glass": <true|false|null>,
-    "Military-grade Certified": <true|false|null>
-  },
-  "gps": {
-    "Built-in GPS": <true|false|null>,
-    "Multi-band GPS": <true|false|null>,
-    "Offline Maps": <true|false|null>
-  },
-  "battery": {
-    "Daily Battery Life": "<string or null>",
-    "GPS Mode Battery Life": "<string or null>",
-    "Solar Charging": <true|false|null>
-  },
-  "health": {
-    "Heart Rate Monitor": <true|false|null>,
-    "Blood Oxygen / SpO2": <true|false|null>,
-    "ECG": <true|false|null>,
-    "Sleep Tracking": <true|false|null>,
-    "Stress Tracking": <true|false|null>,
-    "Skin Temperature": <true|false|null>,
-    "Recovery Metrics": <true|false|null>
-  },
-  "sports": {
-    "Number of Sport Profiles": "<string or null>",
-    "Running": <true|false|null>,
-    "Swimming": <true|false|null>,
-    "Cycling": <true|false|null>,
-    "Golf": <true|false|null>
-  },
-  "connectivity": {
-    "Contactless Payments": <true|false|null>,
-    "Music Storage": <true|false|null>,
-    "Phone Notifications": <true|false|null>,
-    "LTE / Cellular": <true|false|null>
-  },
-  "extra_features": []
+  "Display Type": "<string or null>",
+  "Screen Size": "<string or null>",
+  "Screen Material": "<string or null>",
+  "Case Size": "<string or null>",
+  "Case Material": "<string or null>",
+  "Built-in Storage": "<string or null>",
+  "Built-in GPS": <true|false|null>,
+  "Max Water Resistance": "<string or null>",
+  "Usage Time (Battery)": "<string or null>",
+  "Wireless Connectivity": "<string or null>",
+  "Voice Assistant": "<string or null>",
+  "Sensors": "<string or null>",
+  "Metrics Measured": "<string or null>",
+  "US Release Date": "<string or null>"
 }
 
-For extra_features: if you find any notable feature NOT in the schema above (e.g. flashlight, satellite messaging, dive computer), add objects like:
-{ "name": "Feature Name", "value": true, "type": "boolean" }
-or
-{ "name": "Feature Name", "value": "some text", "type": "text" }
-
-Be specific with text values (e.g. "ATM10 / 100m" not just "waterproof"). Use current official specs.`
+Be specific with text values. For "Sensors" and "Metrics Measured", return comma-separated lists. For "US Release Date" use YYYY-MM-DD format.`
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
@@ -69,7 +34,7 @@ module.exports = async function handler(req, res) {
   try {
     const response = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 2048,
+      max_tokens: 1024,
       tools: req.body.noSearch ? undefined : [{ type: 'web_search_20250305', name: 'web_search', max_uses: 1 }],
       messages: [
         {
