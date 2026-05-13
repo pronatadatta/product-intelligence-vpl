@@ -126,7 +126,34 @@ const SpecCell = memo(function SpecCell({ productId, category, specName, specTyp
   )
 })
 
+const API_PIN = '1234'
+
 function SettingsModal({ apiAllowed, toggleApiAllowed, onClose }) {
+  const [pinEntry, setPinEntry] = useState('')
+  const [showPin, setShowPin] = useState(false)
+  const [pinError, setPinError] = useState(false)
+
+  function handleToggle() {
+    if (apiAllowed) {
+      toggleApiAllowed()
+    } else {
+      setShowPin(true)
+      setPinEntry('')
+      setPinError(false)
+    }
+  }
+
+  function handlePinSubmit(e) {
+    e.preventDefault()
+    if (pinEntry === API_PIN) {
+      setShowPin(false)
+      toggleApiAllowed()
+    } else {
+      setPinError(true)
+      setPinEntry('')
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center" onClick={onClose}>
       <div
@@ -146,7 +173,7 @@ function SettingsModal({ apiAllowed, toggleApiAllowed, onClose }) {
             </p>
           </div>
           <button
-            onClick={toggleApiAllowed}
+            onClick={handleToggle}
             className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors shrink-0 ${
               apiAllowed ? '' : 'bg-gray-300 dark:bg-gray-700'
             }`}
@@ -157,6 +184,41 @@ function SettingsModal({ apiAllowed, toggleApiAllowed, onClose }) {
             }`} />
           </button>
         </div>
+
+        {showPin && (
+          <form onSubmit={handlePinSubmit} className="mt-4">
+            <p className="text-sm text-gray-700 dark:text-gray-300 mb-2">Enter PIN to enable API calls</p>
+            <input
+              type="password"
+              inputMode="numeric"
+              maxLength={8}
+              value={pinEntry}
+              onChange={e => { setPinEntry(e.target.value); setPinError(false) }}
+              autoFocus
+              className={`w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 dark:text-white outline-none ${
+                pinError ? 'border-red-500' : 'border-gray-300 dark:border-gray-700'
+              }`}
+              placeholder="PIN"
+            />
+            {pinError && <p className="text-xs text-red-500 mt-1">Incorrect PIN</p>}
+            <div className="flex gap-2 mt-3">
+              <button
+                type="button"
+                onClick={() => setShowPin(false)}
+                className="flex-1 py-2 rounded-lg border border-gray-300 dark:border-gray-700 text-sm text-gray-700 dark:text-gray-300"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="flex-1 py-2 rounded-lg text-sm text-white font-medium"
+                style={{ background: BB_BLUE }}
+              >
+                Confirm
+              </button>
+            </div>
+          </form>
+        )}
       </div>
     </div>
   )
