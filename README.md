@@ -4,6 +4,8 @@ A self-initiated productivity and data tool I built to automate the parts of my 
 
 I work in retail tech sales and manage vendor product lists (VPL) as a Category Supervisor. This is my attempt to bring real data workflows to a role that typically runs on spreadsheets and gut instinct.
 
+Try it here - bestbuy-vpl.vercel.app
+
 ---
 
 ## What Problem This Solves
