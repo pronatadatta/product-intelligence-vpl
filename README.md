@@ -1,8 +1,8 @@
-# Best Buy VPL Intelligence Tool
+# Product Intelligence VPL
 
 A self-initiated productivity and data tool I built to automate the parts of my job that were eating up time — product research, spec tracking, and vendor comparisons — while learning the tools that actually power modern software: React, AI APIs, and cloud databases.
 
-I work in retail tech sales and manage vendor product lists (VPL) as a Category Supervisor at Best Buy. This is my attempt to bring real data workflows to a role that typically runs on spreadsheets and gut instinct.
+I work in retail tech sales and manage vendor product lists (VPL) as a Category Supervisor. This is my attempt to bring real data workflows to a role that typically runs on spreadsheets and gut instinct.
 
 ---
 
