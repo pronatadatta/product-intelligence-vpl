@@ -77,11 +77,17 @@ function getTopThisWeek(logs, variantMap, n) {
   const counts = {}
   for (const log of logs) {
     if (new Date(log.logged_at) < cutoff) continue
-    const v = variantMap[log.variant_id]
-    if (!v) continue
-    const key = `${v.product.brand}||${v.product.model}||${v.variant || ''}`
-    if (!counts[key]) counts[key] = { count: 0, variant: v }
-    counts[key].count++
+    if (log.custom_product) {
+      const key = `custom:${log.custom_product}`
+      if (!counts[key]) counts[key] = { count: 0, customProduct: log.custom_product }
+      counts[key].count++
+    } else {
+      const v = variantMap[log.variant_id]
+      if (!v) continue
+      const key = `${v.product.brand}||${v.product.model}||${v.variant || ''}`
+      if (!counts[key]) counts[key] = { count: 0, variant: v }
+      counts[key].count++
+    }
   }
   return Object.values(counts)
     .sort((a, b) => b.count - a.count)
@@ -93,11 +99,17 @@ function getRecentlyLogged(logs, variantMap, n) {
   const result = []
   const sorted = [...logs].sort((a, b) => new Date(b.logged_at) - new Date(a.logged_at))
   for (const log of sorted) {
-    const key = `${log.variant_id}||${variantMap[log.variant_id]?.variant || ''}`
-    if (seen.has(key)) continue
-    seen.add(key)
-    const v = variantMap[log.variant_id]
-    if (v) result.push({ variant: v, variant_id: log.variant_id })
+    if (log.custom_product) {
+      if (seen.has(log.custom_product)) continue
+      seen.add(log.custom_product)
+      result.push({ customProduct: log.custom_product })
+    } else {
+      const key = `${log.variant_id}||${variantMap[log.variant_id]?.variant || ''}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      const v = variantMap[log.variant_id]
+      if (v) result.push({ variant: v, variant_id: log.variant_id })
+    }
     if (result.length >= n) break
   }
   return result
@@ -122,8 +134,8 @@ function TrackerLogSheet({ variants, logs, onClose, onSubmit, preselect }) {
   const [submitting, setSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
   const [successVariant, setSuccessVariant] = useState(null)
-  const [customMode, setCustomMode] = useState(false)
-  const [customProduct, setCustomProduct] = useState('')
+  const [customMode, setCustomMode] = useState(preselect?.customMode ?? false)
+  const [customProduct, setCustomProduct] = useState(preselect?.customProduct ?? '')
 
   const variantMap = useMemo(() => Object.fromEntries(variants.map(v => [v.id, v])), [variants])
 
@@ -214,6 +226,13 @@ function TrackerLogSheet({ variants, logs, onClose, onSubmit, preselect }) {
     setVariantText(v.variant || '')
     setColor(v.color || '')
     setSize('')
+    setCustomMode(false)
+  }
+
+  function preselectCustom(productName) {
+    setCustomMode(true)
+    setCustomProduct(productName)
+    reset()
   }
 
   function reset() {
@@ -307,13 +326,13 @@ function TrackerLogSheet({ variants, logs, onClose, onSubmit, preselect }) {
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">Most requested this week</p>
                   <div className="flex flex-wrap gap-2">
-                    {topThisWeek.map(({ variant: v, count }) => (
+                    {topThisWeek.map(({ variant: v, count, customProduct: cp }) => (
                       <button
-                        key={v.id}
-                        onClick={() => preselectVariant(v)}
+                        key={cp || v.id}
+                        onClick={() => cp ? preselectCustom(cp) : preselectVariant(v)}
                         className="px-3 py-1.5 rounded-full text-xs font-medium border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
                       >
-                        {chipLabel(v)}
+                        {cp || chipLabel(v)}
                         <span className="ml-1 text-gray-400">×{count}</span>
                       </button>
                     ))}
@@ -324,13 +343,13 @@ function TrackerLogSheet({ variants, logs, onClose, onSubmit, preselect }) {
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">Recently logged</p>
                   <div className="flex flex-wrap gap-2">
-                    {recentlyLogged.map(({ variant: v, variant_id }) => (
+                    {recentlyLogged.map(({ variant: v, variant_id, customProduct: cp }) => (
                       <button
-                        key={variant_id}
-                        onClick={() => preselectVariant(v)}
+                        key={cp || variant_id}
+                        onClick={() => cp ? preselectCustom(cp) : preselectVariant(v)}
                         className="px-3 py-1.5 rounded-full text-xs font-medium border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
                       >
-                        {chipLabel(v)}
+                        {cp || chipLabel(v)}
                       </button>
                     ))}
                   </div>
@@ -601,18 +620,32 @@ export default function TrackerView({ variants, logs, onSubmitLog }) {
             <p className="text-sm text-gray-400 text-center py-6">Nothing logged this week yet. Tap + to start.</p>
           ) : (
             <div className="grid grid-cols-2 gap-2">
-              {topThisWeek.map(({ variant: v, count }) => (
+              {topThisWeek.map(({ variant: v, count, customProduct: cp }) => (
                 <button
-                  key={`${v.product.brand}|${v.product.model}|${v.variant}`}
-                  onClick={() => openSheet({ brand: v.product.brand, model: v.product.model, variant: v.variant || '' })}
+                  key={cp || `${v.product.brand}|${v.product.model}|${v.variant}`}
+                  onClick={() => cp
+                    ? openSheet({ customMode: true, customProduct: cp })
+                    : openSheet({ brand: v.product.brand, model: v.product.model, variant: v.variant || '' })}
                   className="text-left p-3 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 active:scale-95 transition-transform"
                 >
-                  <div className="flex items-start justify-between gap-1 mb-0.5">
-                    <span className="text-xs font-bold text-gray-900 dark:text-white leading-tight">{v.product.brand}</span>
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white shrink-0" style={{ background: BB_BLUE }}>×{count}</span>
-                  </div>
-                  <p className="text-xs text-gray-600 dark:text-gray-400 leading-tight">{v.product.model}</p>
-                  {v.variant && <p className="text-[10px] text-gray-400 mt-0.5 leading-tight">{v.variant}</p>}
+                  {cp ? (
+                    <>
+                      <div className="flex items-start justify-between gap-1 mb-0.5">
+                        <span className="text-xs font-bold text-gray-900 dark:text-white leading-tight">Unknown</span>
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white shrink-0" style={{ background: BB_BLUE }}>×{count}</span>
+                      </div>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 leading-tight">{cp}</p>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex items-start justify-between gap-1 mb-0.5">
+                        <span className="text-xs font-bold text-gray-900 dark:text-white leading-tight">{v.product.brand}</span>
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white shrink-0" style={{ background: BB_BLUE }}>×{count}</span>
+                      </div>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 leading-tight">{v.product.model}</p>
+                      {v.variant && <p className="text-[10px] text-gray-400 mt-0.5 leading-tight">{v.variant}</p>}
+                    </>
+                  )}
                 </button>
               ))}
             </div>
