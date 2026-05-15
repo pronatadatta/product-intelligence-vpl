@@ -787,8 +787,12 @@ export default function App() {
     }
   }, [apiAllowed])
 
-  const submitLog = useCallback(async (variantId, notes) => {
-    const { error } = await supabase.from('tracker_logs').insert({ variant_id: variantId, notes: notes ?? null })
+  const submitLog = useCallback(async (variantId, notes, customProduct) => {
+    const { error } = await supabase.from('tracker_logs').insert({
+      variant_id: variantId ?? null,
+      notes: notes ?? null,
+      custom_product: customProduct ?? null,
+    })
     if (error) throw error
     const { data } = await supabase.from('tracker_logs').select('*').order('logged_at', { ascending: false }).limit(5000)
     setTrackerLogs(data ?? [])

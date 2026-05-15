@@ -46,6 +46,7 @@ function filterLogsByRange(logs, range) {
 // ─── Data helpers ─────────────────────────────────────────────────────────────
 
 function getGroupKey(log, variantMap, drilldown) {
+  if (log.custom_product) return log.custom_product
   const v = variantMap[log.variant_id]
   if (!v) return 'Unknown'
   if (drilldown === 'product') return `${v.product.brand} ${v.product.model}`
@@ -121,6 +122,8 @@ function TrackerLogSheet({ variants, logs, onClose, onSubmit, preselect }) {
   const [submitting, setSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
   const [successVariant, setSuccessVariant] = useState(null)
+  const [customMode, setCustomMode] = useState(false)
+  const [customProduct, setCustomProduct] = useState('')
 
   const variantMap = useMemo(() => Object.fromEntries(variants.map(v => [v.id, v])), [variants])
 
@@ -218,11 +221,15 @@ function TrackerLogSheet({ variants, logs, onClose, onSubmit, preselect }) {
   }
 
   async function handleSubmit() {
-    if (!matched) return
+    if (customMode ? !customProduct.trim() : !matched) return
     setSubmitting(true)
     try {
-      await onSubmit(matched.id, notes.trim() || null)
-      setSuccessVariant(matched)
+      await onSubmit(
+        customMode ? null : matched.id,
+        notes.trim() || null,
+        customMode ? customProduct.trim() : null
+      )
+      setSuccessVariant(customMode ? null : matched)
       setSuccess(true)
       setTimeout(onClose, 1400)
     } catch (err) {
@@ -240,13 +247,11 @@ function TrackerLogSheet({ variants, logs, onClose, onSubmit, preselect }) {
         <div className="w-full max-w-lg bg-white dark:bg-gray-900 rounded-t-2xl px-6 py-10 flex flex-col items-center gap-3">
           <span className="text-5xl" style={{ color: BB_BLUE }}>✓</span>
           <p className="text-lg font-bold text-gray-900 dark:text-white">Logged</p>
-          {sv && (
-            <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
-              {sv.product.brand} {sv.product.model}
-              {sv.color ? ` · ${sv.color}` : ''}
-              {sv.size ? ` · ${sv.size}` : ''}
-            </p>
-          )}
+          <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
+            {sv
+              ? `${sv.product.brand} ${sv.product.model}${sv.color ? ` · ${sv.color}` : ''}${sv.size ? ` · ${sv.size}` : ''}`
+              : customProduct}
+          </p>
         </div>
       </div>
     )
@@ -265,7 +270,7 @@ function TrackerLogSheet({ variants, logs, onClose, onSubmit, preselect }) {
         <div className="overflow-y-auto flex-1 px-5 pb-8 flex flex-col gap-4">
 
           {/* Search */}
-          <div className="relative">
+          {!customMode && <div className="relative">
             <input
               type="text"
               placeholder="Search product, brand, color…"
@@ -276,10 +281,10 @@ function TrackerLogSheet({ variants, logs, onClose, onSubmit, preselect }) {
             {search && (
               <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg">×</button>
             )}
-          </div>
+          </div>}
 
           {/* Search results */}
-          {search && searchResults.length > 0 && (
+          {!customMode && search && searchResults.length > 0 && (
             <div className="flex flex-col gap-1 -mt-2">
               {searchResults.map(v => (
                 <button
@@ -296,7 +301,7 @@ function TrackerLogSheet({ variants, logs, onClose, onSubmit, preselect }) {
           )}
 
           {/* Quick shortcuts */}
-          {!search && (
+          {!customMode && !search && (
             <>
               {topThisWeek.length > 0 && (
                 <div>
@@ -334,8 +339,33 @@ function TrackerLogSheet({ variants, logs, onClose, onSubmit, preselect }) {
             </>
           )}
 
+          {/* Custom product toggle */}
+          <button
+            onClick={() => { setCustomMode(m => !m); setCustomProduct(''); reset() }}
+            className="text-xs font-medium text-left"
+            style={{ color: BB_BLUE }}
+          >
+            {customMode ? '← Back to product list' : 'Product not in the list?'}
+          </button>
+
+          {/* Custom product input */}
+          {customMode && (
+            <div>
+              <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5 block">Product name</label>
+              <input
+                type="text"
+                value={customProduct}
+                onChange={e => setCustomProduct(e.target.value)}
+                placeholder="e.g. Garmin Fenix 9, Whoop 5.0 Pro…"
+                autoFocus
+                className="w-full rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 py-3 text-sm text-gray-900 dark:text-white focus:outline-none"
+              />
+              <p className="text-xs text-gray-400 mt-1.5">This will be tracked as a new demand signal.</p>
+            </div>
+          )}
+
           {/* Cascading dropdowns */}
-          <div className="flex flex-col gap-3">
+          {!customMode && <div className="flex flex-col gap-3">
             <div>
               <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5 block">Brand</label>
               <select value={brand} onChange={e => { setBrand(e.target.value); setModel(''); setVariantText(''); setColor(''); setSize('') }} className={sel}>
@@ -383,10 +413,10 @@ function TrackerLogSheet({ variants, logs, onClose, onSubmit, preselect }) {
                 </select>
               </div>
             )}
-          </div>
+          </div>}
 
           {/* Selected product summary */}
-          {matched && (
+          {!customMode && matched && (
             <div className="rounded-xl border-2 p-3 flex items-start justify-between gap-3" style={{ borderColor: BB_BLUE }}>
               <div>
                 <p className="text-xs font-bold text-gray-900 dark:text-white">
@@ -402,7 +432,7 @@ function TrackerLogSheet({ variants, logs, onClose, onSubmit, preselect }) {
           )}
 
           {/* Notes */}
-          {matched && (
+          {(matched || customMode) && (
             <div>
               <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5 block">Notes (optional)</label>
               <input
@@ -425,7 +455,7 @@ function TrackerLogSheet({ variants, logs, onClose, onSubmit, preselect }) {
             </button>
             <button
               onClick={handleSubmit}
-              disabled={!matched || submitting}
+              disabled={customMode ? !customProduct.trim() || submitting : !matched || submitting}
               className="flex-1 rounded-xl py-4 text-sm font-bold text-white transition-opacity disabled:opacity-40"
               style={{ background: BB_BLUE }}
             >
