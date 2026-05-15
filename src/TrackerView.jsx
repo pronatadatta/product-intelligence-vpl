@@ -665,7 +665,7 @@ export default function TrackerView({ variants, logs, onSubmitLog, onDeleteLog }
 
   return (
     <>
-      <div className="flex flex-col h-full overflow-y-auto pb-24">
+      <div className="flex flex-col h-full overflow-y-auto pb-40">
 
         {/* Quick Log */}
         <div className="px-4 pt-4 pb-2">
