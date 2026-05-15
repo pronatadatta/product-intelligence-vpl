@@ -707,16 +707,31 @@ export default function App() {
   const [trackerLogs, setTrackerLogs] = useState([])
 
   const loadAll = useCallback(async () => {
-    const [{ data: prods }, { data: sp }, { data: state }, { data: tvars }, { data: tlogs }] = await Promise.all([
+    const [
+      { data: prods },
+      { data: sp },
+      { data: state },
+      { data: tvars, error: tvarErr },
+      { data: tlogs, error: tlogErr },
+    ] = await Promise.all([
       supabase.from('products').select('*').order('brand').order('model'),
       supabase.from('specs').select('*').range(0, 49999),
       supabase.from('app_state').select('*'),
-      supabase.from('tracker_variants').select('*, product:products(brand, model, name, category)'),
+      supabase.from('tracker_variants').select('*'),
       supabase.from('tracker_logs').select('*').order('logged_at', { ascending: false }).limit(5000),
     ])
+
+    if (tvarErr) console.error('tracker_variants error:', tvarErr)
+    if (tlogErr) console.error('tracker_logs error:', tlogErr)
+
+    const prodMap = Object.fromEntries((prods ?? []).map(p => [p.id, p]))
+    const enrichedVariants = (tvars ?? [])
+      .map(tv => ({ ...tv, product: prodMap[tv.product_id] ?? null }))
+      .filter(tv => tv.product)
+
     setProducts(prods ?? [])
     setSpecs(sp ?? [])
-    setTrackerVariants(tvars ?? [])
+    setTrackerVariants(enrichedVariants)
     setTrackerLogs(tlogs ?? [])
     const apiState = (state ?? []).find(s => s.key === 'allow_api_calls')
     setApiAllowed(apiState?.value === 'true')
