@@ -258,9 +258,8 @@ function TrackerLogSheet({ variants, logs, onClose, onSubmit, preselect }) {
         className="w-full max-w-lg bg-white dark:bg-gray-900 rounded-t-2xl shadow-2xl flex flex-col max-h-[92vh]"
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-5 pt-5 pb-3 shrink-0">
+        <div className="flex items-center px-5 pt-5 pb-3 shrink-0">
           <h2 className="text-base font-bold text-gray-900 dark:text-white">Log Demand</h2>
-          <button onClick={onClose} className="text-sm font-medium text-gray-500 dark:text-gray-400 px-2 py-1">Cancel</button>
         </div>
 
         <div className="overflow-y-auto flex-1 px-5 pb-8 flex flex-col gap-4">
@@ -417,14 +416,22 @@ function TrackerLogSheet({ variants, logs, onClose, onSubmit, preselect }) {
           )}
 
           {/* Submit */}
-          <button
-            onClick={handleSubmit}
-            disabled={!matched || submitting}
-            className="w-full rounded-xl py-4 text-sm font-bold text-white transition-opacity disabled:opacity-40"
-            style={{ background: BB_BLUE }}
-          >
-            {submitting ? 'Logging…' : 'Log Demand'}
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              className="flex-1 rounded-xl py-4 text-sm font-bold text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-700"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={!matched || submitting}
+              className="flex-1 rounded-xl py-4 text-sm font-bold text-white transition-opacity disabled:opacity-40"
+              style={{ background: BB_BLUE }}
+            >
+              {submitting ? 'Logging…' : 'Log Demand'}
+            </button>
+          </div>
         </div>
       </div>
     </div>
