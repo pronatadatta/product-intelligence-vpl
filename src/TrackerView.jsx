@@ -342,10 +342,9 @@ function TrackerLogSheet({ variants, logs, onClose, onSubmit, preselect }) {
           {/* Custom product toggle */}
           <button
             onClick={() => { setCustomMode(m => !m); setCustomProduct(''); reset() }}
-            className="text-xs font-medium text-left"
-            style={{ color: BB_BLUE }}
+            className="w-full rounded-xl py-3 text-sm font-semibold border-2 border-dashed border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400"
           >
-            {customMode ? '← Back to product list' : 'Product not in the list?'}
+            {customMode ? '← Back to product list' : '+ Product not in the list?'}
           </button>
 
           {/* Custom product input */}
