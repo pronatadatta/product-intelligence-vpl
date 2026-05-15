@@ -425,7 +425,7 @@ function TrackerLogSheet({ variants, logs, onClose, onSubmit, preselect }) {
 
             {model && (variantTexts.length === 0 || variantText) && colors.length > 0 && (
               <div>
-                <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5 block">Color</label>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5 block">Color <span className="normal-case font-normal">(optional)</span></label>
                 <select value={color} onChange={e => { setColor(e.target.value); setSize('') }} className={sel}>
                   <option value="">Select color…</option>
                   {colors.map(c => <option key={c} value={c}>{c}</option>)}
