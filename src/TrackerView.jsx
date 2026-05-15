@@ -637,7 +637,7 @@ function RecentLogs({ logs, variantMap, onDelete }) {
                 </button>
               </div>
             ) : (
-              <button onClick={() => setConfirmId(log.id)} className="text-gray-300 dark:text-gray-600 text-lg px-1 shrink-0">✕</button>
+              <button onClick={() => setConfirmId(log.id)} className="w-7 h-7 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 text-sm shrink-0">✕</button>
             )}
           </div>
         ))}
