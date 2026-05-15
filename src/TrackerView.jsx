@@ -28,7 +28,7 @@ function getBucketKey(loggedAt, range) {
 
 function formatBucketLabel(bucketKey, range) {
   if (range === 'yearly') return bucketKey
-  const d = new Date(bucketKey + (range === 'monthly' ? '-01' : ''))
+  const d = new Date(bucketKey + (range === 'monthly' ? '-01T00:00:00' : 'T00:00:00'))
   if (range === 'daily') return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   if (range === 'weekly') return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
