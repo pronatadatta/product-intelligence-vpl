@@ -127,7 +127,7 @@ const SpecCell = memo(function SpecCell({ productId, category, specName, specTyp
   )
 })
 
-const API_PIN = '190675'
+const API_PIN = import.meta.env.VITE_API_PIN ?? ''
 
 function SettingsModal({ apiAllowed, toggleApiAllowed, onClose }) {
   const [pinEntry, setPinEntry] = useState('')
