@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 
 const BB_BLUE = '#0046BE'
@@ -646,6 +646,65 @@ function RecentLogs({ logs, variantMap, onDelete }) {
   )
 }
 
+// ─── DraggableFAB ─────────────────────────────────────────────────────────────
+
+function DraggableFAB({ onClick }) {
+  const [pos, setPos] = useState(() => {
+    try {
+      const saved = localStorage.getItem('fab-pos')
+      if (saved) return JSON.parse(saved)
+    } catch {}
+    return { x: window.innerWidth - 72, y: window.innerHeight - 140 }
+  })
+
+  const posRef = useRef(pos)
+  const startPointer = useRef({ x: 0, y: 0 })
+  const startPos = useRef({ x: 0, y: 0 })
+  const moved = useRef(false)
+  const onClickRef = useRef(onClick)
+  onClickRef.current = onClick
+
+  const moveHandler = useRef((e) => {
+    const dx = e.clientX - startPointer.current.x
+    const dy = e.clientY - startPointer.current.y
+    if (Math.abs(dx) > 5 || Math.abs(dy) > 5) moved.current = true
+    const newX = Math.max(0, Math.min(window.innerWidth - 56, startPos.current.x + dx))
+    const newY = Math.max(0, Math.min(window.innerHeight - 56, startPos.current.y + dy))
+    posRef.current = { x: newX, y: newY }
+    setPos({ x: newX, y: newY })
+  })
+
+  const upHandler = useRef(() => {
+    window.removeEventListener('pointermove', moveHandler.current)
+    window.removeEventListener('pointerup', upHandler.current)
+    if (!moved.current) {
+      onClickRef.current()
+    } else {
+      localStorage.setItem('fab-pos', JSON.stringify(posRef.current))
+    }
+  })
+
+  function onPointerDown(e) {
+    e.preventDefault()
+    moved.current = false
+    startPointer.current = { x: e.clientX, y: e.clientY }
+    startPos.current = { ...posRef.current }
+    window.addEventListener('pointermove', moveHandler.current)
+    window.addEventListener('pointerup', upHandler.current)
+  }
+
+  return (
+    <button
+      onPointerDown={onPointerDown}
+      style={{ position: 'fixed', left: pos.x, top: pos.y, background: BB_BLUE, touchAction: 'none' }}
+      className="w-14 h-14 rounded-full shadow-xl flex items-center justify-center text-white text-3xl font-light z-10 select-none"
+      aria-label="Log demand"
+    >
+      +
+    </button>
+  )
+}
+
 export default function TrackerView({ variants, logs, onSubmitLog, onDeleteLog }) {
   const [showSheet, setShowSheet] = useState(false)
   const [preselect, setPreselect] = useState(null)
@@ -724,14 +783,7 @@ export default function TrackerView({ variants, logs, onSubmitLog, onDeleteLog }
       </div>
 
       {/* FAB */}
-      <button
-        onClick={() => openSheet(null)}
-        className="fixed bottom-[72px] right-4 w-14 h-14 rounded-full shadow-xl flex items-center justify-center text-white text-3xl font-light active:scale-95 transition-transform z-10"
-        style={{ background: BB_BLUE }}
-        aria-label="Log demand"
-      >
-        +
-      </button>
+      <DraggableFAB onClick={() => openSheet(null)} />
 
       {showSheet && (
         <TrackerLogSheet
