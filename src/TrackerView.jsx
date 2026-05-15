@@ -180,7 +180,8 @@ function TrackerLogSheet({ variants, logs, onClose, onSubmit, preselect }) {
         .map(v => v.size)
         .filter(Boolean)
     )].sort((a, b) => {
-      const na = Number(a), nb = Number(b)
+      const na = parseFloat(String(a).match(/[\d.]+/)?.[0] ?? '')
+      const nb = parseFloat(String(b).match(/[\d.]+/)?.[0] ?? '')
       return (!isNaN(na) && !isNaN(nb)) ? na - nb : String(a).localeCompare(String(b))
     })
   }, [variants, brand, model, variantText, color, variantTexts])
