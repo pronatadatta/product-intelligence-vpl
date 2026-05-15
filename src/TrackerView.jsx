@@ -260,7 +260,7 @@ function TrackerLogSheet({ variants, logs, onClose, onSubmit, preselect }) {
       >
         <div className="flex items-center justify-between px-5 pt-5 pb-3 shrink-0">
           <h2 className="text-base font-bold text-gray-900 dark:text-white">Log Demand</h2>
-          <button onClick={onClose} className="text-gray-400 text-2xl leading-none">×</button>
+          <button onClick={onClose} className="text-sm font-medium text-gray-500 dark:text-gray-400 px-2 py-1">Cancel</button>
         </div>
 
         <div className="overflow-y-auto flex-1 px-5 pb-8 flex flex-col gap-4">
