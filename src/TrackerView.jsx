@@ -53,23 +53,49 @@ function filterLogsByRange(logs, range) {
 
 // ─── Data helpers ─────────────────────────────────────────────────────────────
 
-function getGroupKey(log, variantMap, drilldown) {
-  if (log.custom_product) return log.custom_product
-  const v = variantMap[log.variant_id]
-  if (!v) return 'Unknown'
-  if (drilldown === 'product') return `${v.product.brand} ${v.product.model}`
-  if (drilldown === 'variant') return [v.product.brand, v.product.model, v.color].filter(Boolean).join(' · ')
-  return v.size || `${v.product.brand} ${v.product.model}`
+function buildProductNameMap(variants) {
+  const map = {}
+  for (const v of variants) {
+    const key = `${v.product.brand} ${v.product.model}`.toLowerCase()
+    if (!map[key]) map[key] = v
+  }
+  return map
 }
 
-function buildChartData(logs, variantMap, range, drilldown) {
+// Resolve a log to a variant whenever possible — even if it was originally
+// logged as a custom_product, prefer a now-known matching variant.
+function resolveVariant(log, variantMap, productByName) {
+  if (log.variant_id) {
+    const v = variantMap[log.variant_id]
+    if (v) return v
+  }
+  if (log.custom_product) {
+    return productByName[log.custom_product.toLowerCase()] ?? null
+  }
+  return null
+}
+
+function getGroupKey(log, variantMap, productByName, drilldown) {
+  const v = resolveVariant(log, variantMap, productByName)
+  if (!v) return log.custom_product || 'Unknown'
+  if (drilldown === 'product') return `${v.product.brand} ${v.product.model}`
+  if (drilldown === 'variant') {
+    const color = log.variant_id ? v.color : null
+    return [v.product.brand, v.product.model, color].filter(Boolean).join(' · ')
+  }
+  const size = log.variant_id ? v.size : null
+  return size || `${v.product.brand} ${v.product.model}`
+}
+
+function buildChartData(logs, variantMap, variants, range, drilldown) {
+  const productByName = buildProductNameMap(variants)
   const filtered = filterLogsByRange(logs, range)
   const bucketMap = {}
   const groupKeys = new Set()
 
   for (const log of filtered) {
     const bk = getBucketKey(log.logged_at, range)
-    const gk = getGroupKey(log, variantMap, drilldown)
+    const gk = getGroupKey(log, variantMap, productByName, drilldown)
     groupKeys.add(gk)
     if (!bucketMap[bk]) bucketMap[bk] = { date: formatBucketLabel(bk, range) }
     bucketMap[bk][gk] = (bucketMap[bk][gk] || 0) + 1
@@ -79,21 +105,21 @@ function buildChartData(logs, variantMap, range, drilldown) {
   return { data, groups: [...groupKeys].sort() }
 }
 
-function getTopThisWeek(logs, variantMap, n) {
+function getTopThisWeek(logs, variantMap, variants, n) {
+  const productByName = buildProductNameMap(variants)
   const cutoff = new Date()
   cutoff.setDate(cutoff.getDate() - 7)
   const counts = {}
   for (const log of logs) {
     if (new Date(log.logged_at) < cutoff) continue
-    if (log.custom_product) {
+    const v = resolveVariant(log, variantMap, productByName)
+    if (v) {
+      const key = `${v.product.brand}||${v.product.model}`
+      if (!counts[key]) counts[key] = { count: 0, variant: v }
+      counts[key].count++
+    } else if (log.custom_product) {
       const key = `custom:${log.custom_product}`
       if (!counts[key]) counts[key] = { count: 0, customProduct: log.custom_product }
-      counts[key].count++
-    } else {
-      const v = variantMap[log.variant_id]
-      if (!v) continue
-      const key = `${v.product.brand}||${v.product.model}||${v.variant || ''}`
-      if (!counts[key]) counts[key] = { count: 0, variant: v }
       counts[key].count++
     }
   }
@@ -102,21 +128,23 @@ function getTopThisWeek(logs, variantMap, n) {
     .slice(0, n)
 }
 
-function getRecentlyLogged(logs, variantMap, n) {
+function getRecentlyLogged(logs, variantMap, variants, n) {
+  const productByName = buildProductNameMap(variants)
   const seen = new Set()
   const result = []
   const sorted = [...logs].sort((a, b) => new Date(b.logged_at) - new Date(a.logged_at))
   for (const log of sorted) {
-    if (log.custom_product) {
-      if (seen.has(log.custom_product)) continue
-      seen.add(log.custom_product)
-      result.push({ customProduct: log.custom_product })
-    } else {
-      const key = `${log.variant_id}||${variantMap[log.variant_id]?.variant || ''}`
+    const v = resolveVariant(log, variantMap, productByName)
+    if (v) {
+      const key = `${v.product.brand}||${v.product.model}||${log.variant_id ? (v.variant || '') : ''}`
       if (seen.has(key)) continue
       seen.add(key)
-      const v = variantMap[log.variant_id]
-      if (v) result.push({ variant: v, variant_id: log.variant_id })
+      result.push({ variant: v, variant_id: v.id })
+    } else if (log.custom_product) {
+      const key = `custom:${log.custom_product}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      result.push({ customProduct: log.custom_product })
     }
     if (result.length >= n) break
   }
@@ -232,8 +260,8 @@ function TrackerLogSheet({ variants, logs, onClose, onSubmit, preselect }) {
     }).slice(0, 8)
   }, [variants, search])
 
-  const topThisWeek = useMemo(() => getTopThisWeek(logs, variantMap, 5), [logs, variantMap])
-  const recentlyLogged = useMemo(() => getRecentlyLogged(logs, variantMap, 5), [logs, variantMap])
+  const topThisWeek = useMemo(() => getTopThisWeek(logs, variantMap, variants, 5), [logs, variantMap, variants])
+  const recentlyLogged = useMemo(() => getRecentlyLogged(logs, variantMap, variants, 5), [logs, variantMap, variants])
 
   function preselectVariant(v) {
     setSearch('')
@@ -509,14 +537,14 @@ function TrackerLogSheet({ variants, logs, onClose, onSubmit, preselect }) {
 
 // ─── DemandGraph ──────────────────────────────────────────────────────────────
 
-function DemandGraph({ logs, variantMap }) {
+function DemandGraph({ logs, variantMap, variants }) {
   const [range, setRange] = useState('weekly')
   const [drilldown, setDrilldown] = useState('product')
   const [focusGroup, setFocusGroup] = useState(null)
 
   const { data, groups } = useMemo(
-    () => buildChartData(logs, variantMap, range, drilldown),
-    [logs, variantMap, range, drilldown]
+    () => buildChartData(logs, variantMap, variants, range, drilldown),
+    [logs, variantMap, variants, range, drilldown]
   )
 
   const displayGroups = focusGroup ? groups.filter(g => g === focusGroup) : groups
@@ -612,7 +640,8 @@ function DemandGraph({ logs, variantMap }) {
 
 const DELETE_PIN = (import.meta.env.VITE_API_PIN ?? '').trim()
 
-function RecentLogs({ logs, variantMap, onDelete }) {
+function RecentLogs({ logs, variantMap, variants, onDelete }) {
+  const productByName = useMemo(() => buildProductNameMap(variants), [variants])
   const [confirmId, setConfirmId] = useState(null)
   const [pinEntry, setPinEntry] = useState('')
   const [pinError, setPinError] = useState(false)
@@ -621,10 +650,13 @@ function RecentLogs({ logs, variantMap, onDelete }) {
   if (recent.length === 0) return null
 
   function logLabel(log) {
-    if (log.custom_product) return log.custom_product
-    const v = variantMap[log.variant_id]
-    if (!v) return 'Unknown'
-    return [v.product.brand, v.product.model, v.color, v.size].filter(Boolean).join(' · ')
+    const v = resolveVariant(log, variantMap, productByName)
+    if (v) {
+      const color = log.variant_id ? v.color : null
+      const size = log.variant_id ? v.size : null
+      return [v.product.brand, v.product.model, color, size].filter(Boolean).join(' · ')
+    }
+    return log.custom_product || 'Unknown'
   }
 
   function formatTime(ts) {
@@ -829,7 +861,7 @@ export default function TrackerView({ variants, logs, onSubmitLog, onDeleteLog, 
   const [preselect, setPreselect] = useState(null)
 
   const variantMap = useMemo(() => Object.fromEntries(variants.map(v => [v.id, v])), [variants])
-  const topThisWeek = useMemo(() => getTopThisWeek(logs, variantMap, 6), [logs, variantMap])
+  const topThisWeek = useMemo(() => getTopThisWeek(logs, variantMap, variants, 6), [logs, variantMap, variants])
 
   const unknownProducts = useMemo(() => {
     const variantProductNames = new Set(
@@ -908,7 +940,7 @@ export default function TrackerView({ variants, logs, onSubmitLog, onDeleteLog, 
         {/* Demand graph */}
         <div>
           <h2 className="text-sm font-bold text-gray-900 dark:text-white px-4 mb-1">Demand Trends</h2>
-          <DemandGraph logs={logs} variantMap={variantMap} />
+          <DemandGraph logs={logs} variantMap={variantMap} variants={variants} />
         </div>
 
         <div className="border-t border-gray-100 dark:border-gray-800 mx-4 my-3" />
@@ -926,7 +958,7 @@ export default function TrackerView({ variants, logs, onSubmitLog, onDeleteLog, 
         )}
 
         {/* Recent logs with delete */}
-        <RecentLogs logs={logs} variantMap={variantMap} onDelete={onDeleteLog} />
+        <RecentLogs logs={logs} variantMap={variantMap} variants={variants} onDelete={onDeleteLog} />
       </div>
 
       {/* FAB */}
