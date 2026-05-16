@@ -711,6 +711,7 @@ export default function App() {
   })
   const [trackerVariants, setTrackerVariants] = useState([])
   const [trackerLogs, setTrackerLogs] = useState([])
+  const [restockItems, setRestockItems] = useState([])
 
   const loadAll = useCallback(async () => {
     const [
@@ -719,16 +720,19 @@ export default function App() {
       { data: state },
       { data: tvars, error: tvarErr },
       { data: tlogs, error: tlogErr },
+      { data: restock, error: restockErr },
     ] = await Promise.all([
       supabase.from('products').select('*').order('brand').order('model'),
       supabase.from('specs').select('*').range(0, 49999),
       supabase.from('app_state').select('*'),
       supabase.from('tracker_variants').select('*'),
       supabase.from('tracker_logs').select('*').order('logged_at', { ascending: false }).limit(5000),
+      supabase.from('restock_items').select('*').order('created_at', { ascending: false }),
     ])
 
     if (tvarErr) console.error('tracker_variants error:', tvarErr)
     if (tlogErr) console.error('tracker_logs error:', tlogErr)
+    if (restockErr) console.error('restock_items error:', restockErr)
 
     const prodMap = Object.fromEntries((prods ?? []).map(p => [p.id, p]))
     const enrichedVariants = (tvars ?? [])
@@ -739,6 +743,7 @@ export default function App() {
     setSpecs(sp ?? [])
     setTrackerVariants(enrichedVariants)
     setTrackerLogs(tlogs ?? [])
+    setRestockItems(restock ?? [])
     const apiState = (state ?? []).find(s => s.key === 'allow_api_calls')
     setApiAllowed(apiState?.value === 'true')
   }, [])
@@ -761,6 +766,10 @@ export default function App() {
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'tracker_logs' }, () => {
         supabase.from('tracker_logs').select('*').order('logged_at', { ascending: false }).limit(5000)
           .then(({ data }) => setTrackerLogs(data ?? []))
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'restock_items' }, () => {
+        supabase.from('restock_items').select('*').order('created_at', { ascending: false })
+          .then(({ data }) => setRestockItems(data ?? []))
       })
       .subscribe()
     return () => supabase.removeChannel(ch)
@@ -796,6 +805,22 @@ export default function App() {
   const deleteLog = useCallback(async (logId) => {
     await supabase.from('tracker_logs').delete().eq('id', logId)
     setTrackerLogs(prev => prev.filter(l => l.id !== logId))
+  }, [])
+
+  const addRestockItem = useCallback(async (variantId, notes, customProduct) => {
+    const { error } = await supabase.from('restock_items').insert({
+      variant_id: variantId ?? null,
+      notes: notes ?? null,
+      custom_product: customProduct ?? null,
+    })
+    if (error) throw error
+    const { data } = await supabase.from('restock_items').select('*').order('created_at', { ascending: false })
+    setRestockItems(data ?? [])
+  }, [])
+
+  const deleteRestockItem = useCallback(async (itemId) => {
+    await supabase.from('restock_items').delete().eq('id', itemId)
+    setRestockItems(prev => prev.filter(r => r.id !== itemId))
   }, [])
 
   const setupVariants = useCallback(async (customProductName) => {
@@ -1032,8 +1057,11 @@ export default function App() {
           <TrackerView
             variants={trackerVariants}
             logs={trackerLogs}
+            restockItems={restockItems}
             onSubmitLog={submitLog}
             onDeleteLog={deleteLog}
+            onAddRestockItem={addRestockItem}
+            onDeleteRestockItem={deleteRestockItem}
             apiAllowed={apiAllowed}
             onSetupVariants={setupVariants}
           />

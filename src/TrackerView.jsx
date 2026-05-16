@@ -159,7 +159,8 @@ function chipLabel(v) {
 
 // ─── TrackerLogSheet ──────────────────────────────────────────────────────────
 
-function TrackerLogSheet({ variants, logs, onClose, onSubmit, preselect }) {
+function TrackerLogSheet({ variants, logs, onClose, onSubmit, onAddRestockItem, preselect }) {
+  const [mode, setMode] = useState(preselect?.mode ?? 'log')
   const [search, setSearch] = useState('')
   const [brand, setBrand] = useState(preselect?.brand ?? '')
   const [model, setModel] = useState(preselect?.model ?? '')
@@ -300,7 +301,11 @@ function TrackerLogSheet({ variants, logs, onClose, onSubmit, preselect }) {
         customStr = [partialMatch.brand, partialMatch.model, partialMatch.variant].filter(Boolean).join(' ')
         label = customStr
       }
-      await onSubmit(variantId, notes.trim() || null, customStr)
+      if (mode === 'restock') {
+        await onAddRestockItem(variantId, notes.trim() || null, customStr)
+      } else {
+        await onSubmit(variantId, notes.trim() || null, customStr)
+      }
       setSuccessLabel(label)
       setSuccess(true)
       setTimeout(onClose, 1400)
@@ -317,7 +322,7 @@ function TrackerLogSheet({ variants, logs, onClose, onSubmit, preselect }) {
       <div className="fixed inset-0 z-50 bg-black/60 flex items-end justify-center">
         <div className="w-full max-w-lg bg-white dark:bg-gray-900 rounded-t-2xl px-6 py-10 flex flex-col items-center gap-3">
           <span className="text-5xl" style={{ color: BB_BLUE }}>✓</span>
-          <p className="text-lg font-bold text-gray-900 dark:text-white">Logged</p>
+          <p className="text-lg font-bold text-gray-900 dark:text-white">{mode === 'restock' ? 'Added to Restock' : 'Logged'}</p>
           <p className="text-sm text-gray-500 dark:text-gray-400 text-center">{successLabel}</p>
         </div>
       </div>
@@ -330,8 +335,21 @@ function TrackerLogSheet({ variants, logs, onClose, onSubmit, preselect }) {
         className="w-full max-w-lg bg-white dark:bg-gray-900 rounded-t-2xl shadow-2xl flex flex-col max-h-[92vh]"
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-center px-5 pt-5 pb-3 shrink-0">
-          <h2 className="text-base font-bold text-gray-900 dark:text-white">Log Demand</h2>
+        <div className="flex items-center justify-center px-5 pt-5 pb-3 shrink-0">
+          <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 rounded-xl p-1">
+            <button
+              onClick={() => setMode('log')}
+              className={`px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wide transition-colors ${mode === 'log' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500'}`}
+            >
+              Log Demand
+            </button>
+            <button
+              onClick={() => setMode('restock')}
+              className={`px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wide transition-colors ${mode === 'restock' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500'}`}
+            >
+              Restock
+            </button>
+          </div>
         </div>
 
         <div className="overflow-y-auto flex-1 px-5 pb-8 flex flex-col gap-4">
@@ -526,7 +544,9 @@ function TrackerLogSheet({ variants, logs, onClose, onSubmit, preselect }) {
               className="flex-1 rounded-xl py-4 text-sm font-bold text-white transition-opacity disabled:opacity-40"
               style={{ background: BB_BLUE }}
             >
-              {submitting ? 'Logging…' : 'Log Demand'}
+              {submitting
+                ? (mode === 'restock' ? 'Adding…' : 'Logging…')
+                : (mode === 'restock' ? 'Add to Restock' : 'Log Demand')}
             </button>
           </div>
         </div>
@@ -740,6 +760,65 @@ function RecentLogs({ logs, variantMap, variants, onDelete }) {
   )
 }
 
+// ─── RestockList ─────────────────────────────────────────────────────────────
+
+function RestockList({ items, variantMap, variants, onDelete, onAdd }) {
+  const productByName = useMemo(() => buildProductNameMap(variants), [variants])
+
+  function itemLabel(item) {
+    const fakeLog = { variant_id: item.variant_id, custom_product: item.custom_product }
+    const v = resolveVariant(fakeLog, variantMap, productByName)
+    if (v) {
+      const color = item.variant_id ? v.color : null
+      const size = item.variant_id ? v.size : null
+      return [v.product.brand, v.product.model, color, size].filter(Boolean).join(' · ')
+    }
+    return item.custom_product || 'Unknown'
+  }
+
+  return (
+    <div className="px-4 pb-4">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-sm font-bold text-gray-900 dark:text-white">Restock List</h2>
+        <button
+          onClick={onAdd}
+          className="text-xs font-semibold px-3 py-1 rounded-full text-white"
+          style={{ background: BB_BLUE }}
+        >
+          + Add
+        </button>
+      </div>
+      {items.length === 0 ? (
+        <p className="text-xs text-gray-400 text-center py-4">
+          No items queued. Tap + Add (or use the floating + and switch to Restock).
+        </p>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {items.map(item => (
+            <div
+              key={item.id}
+              className="rounded-xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 px-3 py-2.5 flex items-center justify-between gap-3"
+            >
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-gray-900 dark:text-white truncate">{itemLabel(item)}</p>
+                {item.notes && <p className="text-[10px] text-gray-400 truncate mt-0.5">{item.notes}</p>}
+              </div>
+              <button
+                onClick={() => onDelete(item.id)}
+                className="w-7 h-7 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 text-sm shrink-0"
+                title="Remove from restock list"
+                aria-label="Remove from restock list"
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── UnknownProducts ─────────────────────────────────────────────────────────
 
 function UnknownProducts({ products, apiAllowed, onSetupVariants }) {
@@ -856,7 +935,11 @@ function DraggableFAB({ onClick }) {
   )
 }
 
-export default function TrackerView({ variants, logs, onSubmitLog, onDeleteLog, apiAllowed, onSetupVariants }) {
+export default function TrackerView({
+  variants, logs, restockItems,
+  onSubmitLog, onDeleteLog, onAddRestockItem, onDeleteRestockItem,
+  apiAllowed, onSetupVariants,
+}) {
   const [showSheet, setShowSheet] = useState(false)
   const [preselect, setPreselect] = useState(null)
 
@@ -937,6 +1020,17 @@ export default function TrackerView({ variants, logs, onSubmitLog, onDeleteLog, 
 
         <div className="border-t border-gray-100 dark:border-gray-800 mx-4 my-3" />
 
+        {/* Restock list */}
+        <RestockList
+          items={restockItems}
+          variantMap={variantMap}
+          variants={variants}
+          onDelete={onDeleteRestockItem}
+          onAdd={() => openSheet({ mode: 'restock' })}
+        />
+
+        <div className="border-t border-gray-100 dark:border-gray-800 mx-4 my-3" />
+
         {/* Demand graph */}
         <div>
           <h2 className="text-sm font-bold text-gray-900 dark:text-white px-4 mb-1">Demand Trends</h2>
@@ -971,6 +1065,7 @@ export default function TrackerView({ variants, logs, onSubmitLog, onDeleteLog, 
           preselect={preselect}
           onClose={closeSheet}
           onSubmit={onSubmitLog}
+          onAddRestockItem={onAddRestockItem}
         />
       )}
     </>
