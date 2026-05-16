@@ -813,8 +813,10 @@ export default function App() {
       notes: notes ?? null,
       custom_product: customProduct ?? null,
     })
-    if (error) throw error
-    const { data } = await supabase.from('restock_items').select('*').order('created_at', { ascending: false })
+    if (error) throw new Error(`Restock insert failed: ${error.message}`)
+    const { data, error: selectErr } = await supabase
+      .from('restock_items').select('*').order('created_at', { ascending: false })
+    if (selectErr) throw new Error(`Restock read failed: ${selectErr.message}`)
     setRestockItems(data ?? [])
   }, [])
 

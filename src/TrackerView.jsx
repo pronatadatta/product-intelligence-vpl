@@ -169,6 +169,7 @@ function TrackerLogSheet({ variants, logs, onClose, onSubmit, onAddRestockItem, 
   const [size, setSize] = useState('')
   const [notes, setNotes] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState('')
   const [success, setSuccess] = useState(false)
   const [successLabel, setSuccessLabel] = useState('')
   const [customMode, setCustomMode] = useState(preselect?.customMode ?? false)
@@ -287,6 +288,7 @@ function TrackerLogSheet({ variants, logs, onClose, onSubmit, onAddRestockItem, 
   async function handleSubmit() {
     if (customMode ? !customProduct.trim() : !matched && !partialMatch) return
     setSubmitting(true)
+    setSubmitError('')
     try {
       let variantId = null
       let customStr = null
@@ -311,6 +313,7 @@ function TrackerLogSheet({ variants, logs, onClose, onSubmit, onAddRestockItem, 
       setTimeout(onClose, 1400)
     } catch (err) {
       console.error(err)
+      setSubmitError(err?.message || String(err))
       setSubmitting(false)
     }
   }
@@ -528,6 +531,10 @@ function TrackerLogSheet({ variants, logs, onClose, onSubmit, onAddRestockItem, 
                 className="w-full rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 py-3 text-sm text-gray-900 dark:text-white focus:outline-none"
               />
             </div>
+          )}
+
+          {submitError && (
+            <p className="text-xs text-red-500 -mb-1">{submitError}</p>
           )}
 
           {/* Submit */}
