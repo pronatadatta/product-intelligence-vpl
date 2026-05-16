@@ -262,7 +262,7 @@ const SelectView = memo(function SelectView({
 
       {selected.length > 0 && (
         <div className="mx-4 mb-3 rounded-xl px-4 py-2.5 flex items-center justify-between text-white text-sm font-medium" style={{ background: BB_BLUE }}>
-          <span>{selected.length} selected{selected.length < 2 ? ' — pick 1 more to compare' : ''}</span>
+          <span>{selected.length} selected</span>
           <button onClick={() => setSelected([])} className="text-white/70 text-xs ml-2">Clear</button>
         </div>
       )}
@@ -339,7 +339,7 @@ function CompareView({
           ← Back
         </button>
         <span className="text-sm font-semibold text-gray-900 dark:text-white flex-1 text-center">
-          Compare ({ordered.length})
+          {ordered.length === 1 ? 'Details' : `Compare (${ordered.length})`}
         </span>
         <div className="w-12" />
       </div>
@@ -1030,14 +1030,14 @@ export default function App() {
         )}
       </main>
 
-      {tab === 'compare' && view === 'select' && selected.length >= 2 && (
+      {tab === 'compare' && view === 'select' && selected.length >= 1 && (
         <div className="absolute bottom-16 left-0 right-0 px-4 pb-2 z-20 max-w-lg mx-auto">
           <button
             onClick={() => setView('compare')}
             className="w-full rounded-2xl py-4 text-white font-bold text-base shadow-xl active:scale-95 transition-transform"
             style={{ background: BB_BLUE }}
           >
-            Compare {selected.length} Products →
+            {selected.length === 1 ? 'See Details →' : `Compare ${selected.length} Products →`}
           </button>
         </div>
       )}
