@@ -30,7 +30,15 @@ function formatBucketLabel(bucketKey, range) {
   if (range === 'yearly') return bucketKey
   const d = new Date(bucketKey + (range === 'monthly' ? '-01T00:00:00' : 'T00:00:00'))
   if (range === 'daily') return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-  if (range === 'weekly') return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  if (range === 'weekly') {
+    const end = new Date(d)
+    end.setDate(d.getDate() + 6)
+    const startStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    const endStr = d.getMonth() === end.getMonth()
+      ? end.getDate()
+      : end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    return `${startStr}–${endStr}`
+  }
   return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
 }
 
