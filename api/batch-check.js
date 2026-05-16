@@ -1,6 +1,6 @@
-const Anthropic = require('@anthropic-ai/sdk')
+const Groq = require('groq-sdk')
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+const client = new Groq({ apiKey: process.env.GROQ_API_KEY })
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
@@ -25,13 +25,19 @@ Example: {"1": "some value", "2": "other value", "3": null}
 Return ONLY the JSON object.`
 
   try {
-    const response = await client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
+    const response = await client.chat.completions.create({
+      model: 'llama-3.3-70b-versatile',
       max_tokens: 512,
-      messages: [{ role: 'user', content: prompt }],
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a product spec lookup assistant. Return only valid JSON, no markdown, no explanation.',
+        },
+        { role: 'user', content: prompt },
+      ],
     })
 
-    const raw = response.content[0]?.text?.trim() ?? '{}'
+    const raw = response.choices[0]?.message?.content?.trim() ?? '{}'
     const jsonStr = raw.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim()
     const result = JSON.parse(jsonStr)
 

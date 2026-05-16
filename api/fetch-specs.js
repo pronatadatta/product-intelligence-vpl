@@ -1,6 +1,6 @@
-const Anthropic = require('@anthropic-ai/sdk')
+const Groq = require('groq-sdk')
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+const client = new Groq({ apiKey: process.env.GROQ_API_KEY })
 
 const SPEC_SCHEMA = `Return ONLY a JSON object with exactly these keys (no extras). Use null for unknown/not applicable.
 
@@ -32,27 +32,22 @@ module.exports = async function handler(req, res) {
   const productLabel = [brand, model, variant, size].filter(Boolean).join(' ')
 
   try {
-    const response = await client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
+    const response = await client.chat.completions.create({
+      model: 'llama-3.3-70b-versatile',
       max_tokens: 1024,
-      tools: req.body.noSearch ? undefined : [{ type: 'web_search_20250305', name: 'web_search', max_uses: 1 }],
       messages: [
         {
+          role: 'system',
+          content: 'You are a product spec lookup assistant. Return only valid JSON, no markdown, no explanation.',
+        },
+        {
           role: 'user',
-          content: `Look up the official specs for the ${productLabel}. Use web search to get accurate, current specifications.
-
-${SPEC_SCHEMA}
-
-Product: ${productLabel}
-Return ONLY the JSON object, no markdown, no explanation.`,
+          content: `Look up the official specs for the ${productLabel}.\n\n${SPEC_SCHEMA}\n\nProduct: ${productLabel}\nReturn ONLY the JSON object, no markdown, no explanation.`,
         },
       ],
     })
 
-    const textBlock = response.content.findLast(b => b.type === 'text')
-    if (!textBlock) return res.status(500).json({ error: 'No text response from Claude' })
-
-    const raw = textBlock.text.trim()
+    const raw = response.choices[0]?.message?.content?.trim() ?? ''
     const jsonStr = raw.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim()
     const specs = JSON.parse(jsonStr)
 
