@@ -32,8 +32,10 @@ module.exports = async function handler(req, res) {
   const productLabel = [brand, model, variant, size].filter(Boolean).join(' ')
 
   try {
+    const model = req.body.noSearch ? 'llama-3.3-70b-versatile' : 'compound-beta'
+
     const response = await client.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
+      model,
       max_tokens: 1024,
       messages: [
         {
