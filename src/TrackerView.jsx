@@ -616,8 +616,8 @@ function CompactTooltip({ active, payload, label }) {
 
 
 function DemandGraph({ logs, variantMap, variants }) {
-  const [range, setRange] = useState('weekly')
-  const [drilldown, setDrilldown] = useState('product')
+  const [range, setRange] = useState('daily')
+  const [drilldown, setDrilldown] = useState('brand')
   const [focusGroup, setFocusGroup] = useState(null)
 
   const { data, groups } = useMemo(
