@@ -730,9 +730,18 @@ function RecentLogs({ logs, variantMap, variants, onDelete }) {
   const [confirmId, setConfirmId] = useState(null)
   const [pinEntry, setPinEntry] = useState('')
   const [pinError, setPinError] = useState(false)
-  const recent = logs.slice(0, 20)
 
-  if (recent.length === 0) return null
+  const recent = useMemo(() => {
+    const now = new Date()
+    return logs.filter(log => {
+      const d = new Date(log.logged_at)
+      return (
+        d.getFullYear() === now.getFullYear() &&
+        d.getMonth() === now.getMonth() &&
+        d.getDate() === now.getDate()
+      )
+    })
+  }, [logs])
 
   function logLabel(log) {
     const v = resolveVariant(log, variantMap, productByName)
@@ -781,7 +790,13 @@ function RecentLogs({ logs, variantMap, variants, onDelete }) {
 
   return (
     <div className="px-4 pb-6">
-      <h2 className="text-sm font-bold text-gray-900 dark:text-white mb-3">Recent Logs</h2>
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-sm font-bold text-gray-900 dark:text-white">Today's Logs</h2>
+        <span className="text-xs text-gray-400">{recent.length} entr{recent.length === 1 ? 'y' : 'ies'}</span>
+      </div>
+      {recent.length === 0 ? (
+        <p className="text-xs text-gray-400 text-center py-4">No logs yet today.</p>
+      ) : (
       <div className="flex flex-col gap-2">
         {recent.map(log => (
           <div key={log.id} className="rounded-xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 overflow-hidden">
@@ -821,6 +836,7 @@ function RecentLogs({ logs, variantMap, variants, onDelete }) {
           </div>
         ))}
       </div>
+      )}
     </div>
   )
 }
