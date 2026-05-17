@@ -840,11 +840,11 @@ function RestockList({ items, variantMap, variants, onDelete, onAdd }) {
           No items queued. Tap + Add (or use the floating + and switch to Restock).
         </p>
       ) : (
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2 max-h-72 overflow-y-auto pr-1 -mr-1">
           {items.map(item => (
             <div
               key={item.id}
-              className="rounded-xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 px-3 py-2.5 flex items-center justify-between gap-3"
+              className="rounded-xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 px-3 py-2.5 flex items-center justify-between gap-3 shrink-0"
             >
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-medium text-gray-900 dark:text-white truncate">{itemLabel(item)}</p>
