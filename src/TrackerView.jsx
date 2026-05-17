@@ -665,12 +665,12 @@ function DemandGraph({ logs, variantMap, variants }) {
       </ResponsiveContainer>
 
       {/* Legend */}
-      <div className="mt-3 flex flex-wrap gap-x-3 gap-y-2 max-h-20 overflow-y-auto">
+      <div className="mt-3 flex gap-3 overflow-x-auto pb-1 -mx-1 px-1">
         {groups.map((g, i) => (
           <button
             key={g}
             onClick={() => setFocusGroup(focusGroup === g ? null : g)}
-            className={`flex items-center gap-1.5 text-xs transition-opacity ${focusGroup && focusGroup !== g ? 'opacity-30' : ''}`}
+            className={`flex items-center gap-1.5 text-xs shrink-0 whitespace-nowrap transition-opacity ${focusGroup && focusGroup !== g ? 'opacity-30' : ''}`}
           >
             <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: CHART_COLORS[i % CHART_COLORS.length] }} />
             <span className="text-gray-700 dark:text-gray-300">{g}</span>
