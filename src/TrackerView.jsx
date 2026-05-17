@@ -84,7 +84,13 @@ function resolveVariant(log, variantMap, productByName) {
 
 function getGroupKey(log, variantMap, productByName, drilldown) {
   const v = resolveVariant(log, variantMap, productByName)
-  if (!v) return log.custom_product || 'Unknown'
+  if (!v) {
+    if (drilldown === 'brand' && log.custom_product) {
+      return log.custom_product.split(' ')[0]
+    }
+    return log.custom_product || 'Unknown'
+  }
+  if (drilldown === 'brand') return v.product.brand
   if (drilldown === 'product') return `${v.product.brand} ${v.product.model}`
   if (drilldown === 'variant') {
     const color = log.variant_id ? v.color : null
@@ -609,7 +615,7 @@ function DemandGraph({ logs, variantMap, variants }) {
           ))}
         </div>
         <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 rounded-xl p-1">
-          {[['product', 'Product'], ['variant', 'Color'], ['size', 'Size']].map(([d, label]) => (
+          {[['brand', 'Brand'], ['product', 'Product'], ['variant', 'Color'], ['size', 'Size']].map(([d, label]) => (
             <button
               key={d}
               onClick={() => { setDrilldown(d); setFocusGroup(null) }}
