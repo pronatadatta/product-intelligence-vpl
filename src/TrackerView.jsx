@@ -681,7 +681,11 @@ function DemandGraph({ logs, variantMap, variants }) {
         <AreaChart data={data} margin={{ top: 4, right: 4, left: -24, bottom: 0 }}>
           <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#9ca3af' }} tickLine={false} axisLine={false} />
           <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} tickLine={false} axisLine={false} allowDecimals={false} />
-          <Tooltip content={<CompactTooltip />} />
+          <Tooltip
+            content={<CompactTooltip />}
+            wrapperStyle={{ pointerEvents: 'auto' }}
+            isAnimationActive={false}
+          />
           {displayGroups.map((g, i) => {
             const color = CHART_COLORS[groups.indexOf(g) % CHART_COLORS.length]
             return (
