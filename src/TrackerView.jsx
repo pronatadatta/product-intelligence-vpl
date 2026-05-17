@@ -18,10 +18,17 @@ function getWeekStart(date) {
   return d
 }
 
+function formatLocalDate(d) {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 function getBucketKey(loggedAt, range) {
   const d = new Date(loggedAt)
-  if (range === 'daily') return d.toISOString().slice(0, 10)
-  if (range === 'weekly') return getWeekStart(d).toISOString().slice(0, 10)
+  if (range === 'daily') return formatLocalDate(d)
+  if (range === 'weekly') return formatLocalDate(getWeekStart(d))
   if (range === 'monthly') return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
   return String(d.getFullYear())
 }
