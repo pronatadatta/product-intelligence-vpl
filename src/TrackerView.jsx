@@ -591,28 +591,24 @@ function CompactTooltip({ active, payload, label }) {
         {label}
       </div>
       <div
-        className="px-2.5 py-1.5 flex flex-col gap-1"
-        style={{ maxHeight: 140, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}
+        className="px-2.5 py-1.5"
+        style={{
+          maxHeight: 140,
+          overflowX: 'auto',
+          overflowY: 'auto',
+          WebkitOverflowScrolling: 'touch',
+          touchAction: 'pan-x pan-y',
+        }}
       >
-        {items.map((entry, i) => (
-          <div key={i} className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-sm shrink-0" style={{ background: entry.color }} />
-            <div
-              className="flex-1 min-w-0 overflow-x-auto"
-              style={{
-                WebkitOverflowScrolling: 'touch',
-                touchAction: 'pan-x',
-                maskImage: 'linear-gradient(to right, black 85%, transparent 100%)',
-                WebkitMaskImage: 'linear-gradient(to right, black 85%, transparent 100%)',
-              }}
-            >
-              <span className="text-gray-700 dark:text-gray-300 whitespace-nowrap inline-block pr-3">
-                {entry.name}
-              </span>
+        <div className="flex flex-col gap-1" style={{ width: 'max-content', minWidth: '100%' }}>
+          {items.map((entry, i) => (
+            <div key={i} className="flex items-center gap-1.5 whitespace-nowrap">
+              <span className="w-2 h-2 rounded-sm shrink-0" style={{ background: entry.color }} />
+              <span className="text-gray-700 dark:text-gray-300 flex-1 pr-3">{entry.name}</span>
+              <span className="font-semibold text-gray-900 dark:text-white shrink-0">{entry.value}</span>
             </div>
-            <span className="ml-1 font-semibold text-gray-900 dark:text-white shrink-0">{entry.value}</span>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </div>
   )
