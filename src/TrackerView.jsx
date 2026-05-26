@@ -974,6 +974,98 @@ function ReportSheet({ logs, variants, onClose }) {
   const [email, setEmail] = useState('')
   const [genError, setGenError] = useState('')
   const [copied, setCopied] = useState(false)
+  const [chartCopied, setChartCopied] = useState(false)
+  const chartRef = useRef(null)
+
+  const chartData = useMemo(() => {
+    if (!email) return null
+    const days = period.days
+    const cutoff = days != null ? new Date(Date.now() - days * 86400000) : null
+    const filtered = cutoff ? logs.filter(l => new Date(l.logged_at) >= cutoff) : logs
+    const range = days == null ? 'monthly' : days <= 30 ? 'daily' : 'weekly'
+    const bucketMap = {}
+    const brandSet = new Set()
+    for (const log of filtered) {
+      if (!log.variant_id) continue
+      const v = variantMap[log.variant_id]
+      if (!v?.product) continue
+      const bk = getBucketKey(log.logged_at, range)
+      const brand = v.product.brand
+      brandSet.add(brand)
+      if (!bucketMap[bk]) bucketMap[bk] = { date: formatBucketLabel(bk, range) }
+      bucketMap[bk][brand] = (bucketMap[bk][brand] || 0) + 1
+    }
+    const data = Object.keys(bucketMap).sort().map(bk => bucketMap[bk])
+    const brands = [...brandSet].sort()
+    return data.length > 0 ? { data, brands } : null
+  }, [email, period, logs, variantMap])
+
+  async function copyChart() {
+    const container = chartRef.current
+    if (!container) return
+    const svgEl = container.querySelector('svg')
+    if (!svgEl) return
+
+    const scale = 2
+    const svgW = svgEl.clientWidth || 500
+    const svgH = svgEl.clientHeight || 200
+    const brands = chartData?.brands ?? []
+    const legendH = brands.length > 0 ? 28 : 0
+    const pad = 16
+
+    const clone = svgEl.cloneNode(true)
+    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
+    clone.setAttribute('width', svgW)
+    clone.setAttribute('height', svgH)
+    const svgStr = new XMLSerializer().serializeToString(clone)
+    const svgBlob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' })
+    const url = URL.createObjectURL(svgBlob)
+
+    return new Promise(resolve => {
+      const img = new Image()
+      img.onload = async () => {
+        const cW = svgW + pad * 2
+        const cH = svgH + pad * 2 + legendH
+        const canvas = document.createElement('canvas')
+        canvas.width = cW * scale
+        canvas.height = cH * scale
+        const ctx = canvas.getContext('2d')
+        ctx.scale(scale, scale)
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect(0, 0, cW, cH)
+        ctx.drawImage(img, pad, pad, svgW, svgH)
+        URL.revokeObjectURL(url)
+
+        if (brands.length > 0) {
+          let lx = pad + 8
+          const ly = svgH + pad + 16
+          ctx.font = '600 11px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+          ctx.textBaseline = 'middle'
+          for (let i = 0; i < brands.length; i++) {
+            const color = CHART_COLORS[i % CHART_COLORS.length]
+            ctx.fillStyle = color
+            ctx.fillRect(lx, ly - 5, 10, 10)
+            ctx.fillStyle = '#374151'
+            ctx.fillText(brands[i], lx + 14, ly)
+            lx += ctx.measureText(brands[i]).width + 28
+          }
+        }
+
+        canvas.toBlob(async pngBlob => {
+          try {
+            await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob })])
+            setChartCopied(true)
+            setTimeout(() => setChartCopied(false), 2000)
+          } catch (err) {
+            console.error('Chart copy failed:', err)
+          }
+          resolve()
+        }, 'image/png')
+      }
+      img.onerror = () => { URL.revokeObjectURL(url); resolve() }
+      img.src = url
+    })
+  }
 
   function computeReportData(days) {
     const cutoff = days != null ? new Date(Date.now() - days * 86400000) : null
@@ -1141,6 +1233,55 @@ function ReportSheet({ logs, variants, onClose }) {
               </div>
 
               {genError && <p className="text-xs text-red-500 shrink-0">{genError}</p>}
+
+              {/* Demand chart for email */}
+              {chartData && (
+                <div className="shrink-0">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Demand Chart</p>
+                    <button
+                      onClick={copyChart}
+                      className="text-xs font-semibold px-3 py-1 rounded-full border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300"
+                    >
+                      {chartCopied ? 'Copied!' : 'Copy Chart'}
+                    </button>
+                  </div>
+                  <div
+                    ref={chartRef}
+                    style={{ background: '#ffffff', borderRadius: 12, border: '1px solid #e5e7eb', padding: '12px 4px 4px' }}
+                  >
+                    <ResponsiveContainer width="100%" height={160}>
+                      <AreaChart data={chartData.data} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+                        <XAxis dataKey="date" tick={{ fontSize: 9, fill: '#9ca3af' }} tickLine={false} axisLine={false} />
+                        <YAxis tick={{ fontSize: 9, fill: '#9ca3af' }} tickLine={false} axisLine={false} allowDecimals={false} />
+                        {chartData.brands.map((brand, i) => {
+                          const color = CHART_COLORS[i % CHART_COLORS.length]
+                          return (
+                            <Area
+                              key={brand}
+                              type="monotone"
+                              dataKey={brand}
+                              stackId="1"
+                              stroke={color}
+                              fill={color}
+                              fillOpacity={0.65}
+                              strokeWidth={1.5}
+                            />
+                          )
+                        })}
+                      </AreaChart>
+                    </ResponsiveContainer>
+                    <div className="flex flex-wrap gap-x-3 gap-y-1 px-3 pb-2 mt-1">
+                      {chartData.brands.map((brand, i) => (
+                        <div key={brand} className="flex items-center gap-1.5">
+                          <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: CHART_COLORS[i % CHART_COLORS.length] }} />
+                          <span style={{ fontSize: 11, color: '#374151' }}>{brand}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="flex gap-3 shrink-0">
                 <button
