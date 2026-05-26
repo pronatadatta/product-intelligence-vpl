@@ -964,6 +964,7 @@ const REPORT_PERIODS = [
   { label: 'Last 2 Weeks', days: 14 },
   { label: 'This Month', days: 30 },
   { label: 'Last 3 Months', days: 90 },
+  { label: 'All Time', days: null },
 ]
 
 function ReportSheet({ logs, variants, onClose }) {
@@ -975,10 +976,8 @@ function ReportSheet({ logs, variants, onClose }) {
   const [copied, setCopied] = useState(false)
 
   function computeReportData(days) {
-    const cutoff = new Date()
-    cutoff.setDate(cutoff.getDate() - days)
-
-    const filtered = logs.filter(l => new Date(l.logged_at) >= cutoff)
+    const cutoff = days != null ? new Date(Date.now() - days * 86400000) : null
+    const filtered = days != null ? logs.filter(l => new Date(l.logged_at) >= cutoff) : logs
     const groups = {}
 
     for (const log of filtered) {
@@ -1028,7 +1027,7 @@ function ReportSheet({ logs, variants, onClose }) {
         }))
         .sort((a, b) => b.demand_count - a.demand_count),
       totalLogs: filtered.length,
-      periodStart: minTs === Infinity ? fmtDate(cutoff) : fmtDate(new Date(minTs)),
+      periodStart: minTs === Infinity ? (cutoff ? fmtDate(cutoff) : 'Start of data') : fmtDate(new Date(minTs)),
       periodEnd: fmtDate(new Date()),
     }
   }
@@ -1078,7 +1077,7 @@ function ReportSheet({ logs, variants, onClose }) {
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">Time Period</p>
                 <div className="grid grid-cols-2 gap-2">
-                  {REPORT_PERIODS.map(p => (
+                  {REPORT_PERIODS.slice(0, 4).map(p => (
                     <button
                       key={p.label}
                       onClick={() => setPeriod(p)}
@@ -1093,6 +1092,17 @@ function ReportSheet({ logs, variants, onClose }) {
                     </button>
                   ))}
                 </div>
+                <button
+                  onClick={() => setPeriod(REPORT_PERIODS[4])}
+                  className={`mt-2 w-full py-3 rounded-xl text-sm font-semibold border-2 transition-colors ${
+                    period.label === 'All Time'
+                      ? 'text-white border-transparent'
+                      : 'border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900'
+                  }`}
+                  style={period.label === 'All Time' ? { background: BB_BLUE, borderColor: BB_BLUE } : {}}
+                >
+                  All Time — Use All Available Data
+                </button>
               </div>
 
               {genError && <p className="text-xs text-red-500">{genError}</p>}
