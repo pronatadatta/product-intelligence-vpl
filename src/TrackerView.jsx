@@ -957,6 +957,205 @@ function UnknownProducts({ products, apiAllowed, onSetupVariants }) {
   )
 }
 
+// ─── ReportSheet ─────────────────────────────────────────────────────────────
+
+const REPORT_PERIODS = [
+  { label: 'This Week', days: 7 },
+  { label: 'Last 2 Weeks', days: 14 },
+  { label: 'This Month', days: 30 },
+  { label: 'Last 3 Months', days: 90 },
+]
+
+function ReportSheet({ logs, variants, onClose }) {
+  const variantMap = useMemo(() => Object.fromEntries(variants.map(v => [v.id, v])), [variants])
+  const [period, setPeriod] = useState(REPORT_PERIODS[0])
+  const [loading, setLoading] = useState(false)
+  const [email, setEmail] = useState('')
+  const [genError, setGenError] = useState('')
+  const [copied, setCopied] = useState(false)
+
+  function computeReportData(days) {
+    const cutoff = new Date()
+    cutoff.setDate(cutoff.getDate() - days)
+
+    const filtered = logs.filter(l => new Date(l.logged_at) >= cutoff)
+    const groups = {}
+
+    for (const log of filtered) {
+      if (!log.variant_id) continue
+      const v = variantMap[log.variant_id]
+      if (!v?.product || v.product.category !== 'Wearables') continue
+
+      const key = [v.product.brand, v.product.model, v.variant || '', v.color || '', v.size || ''].join('|')
+      if (!groups[key]) {
+        groups[key] = {
+          brand: v.product.brand,
+          product_name: v.product.model,
+          variant: v.variant || null,
+          color: v.color || null,
+          size: v.size || null,
+          demand_count: 0,
+          first_ts: log.logged_at,
+          last_ts: log.logged_at,
+          notes_seen: new Set(),
+        }
+      }
+      const g = groups[key]
+      g.demand_count++
+      if (new Date(log.logged_at) < new Date(g.first_ts)) g.first_ts = log.logged_at
+      if (new Date(log.logged_at) > new Date(g.last_ts)) g.last_ts = log.logged_at
+      if (log.notes?.trim()) g.notes_seen.add(log.notes.trim())
+    }
+
+    const fmtDate = ts => new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    const minTs = filtered.reduce((min, l) => {
+      const t = new Date(l.logged_at).getTime()
+      return t < min ? t : min
+    }, Infinity)
+
+    return {
+      demandData: Object.values(groups)
+        .map(g => ({
+          brand: g.brand,
+          product_name: g.product_name,
+          variant: g.variant,
+          color: g.color,
+          size: g.size,
+          demand_count: g.demand_count,
+          first_requested: fmtDate(new Date(g.first_ts)),
+          last_requested: fmtDate(new Date(g.last_ts)),
+          notes: g.notes_seen.size ? [...g.notes_seen].join(' | ') : null,
+        }))
+        .sort((a, b) => b.demand_count - a.demand_count),
+      totalLogs: filtered.length,
+      periodStart: minTs === Infinity ? fmtDate(cutoff) : fmtDate(new Date(minTs)),
+      periodEnd: fmtDate(new Date()),
+    }
+  }
+
+  async function generate() {
+    setLoading(true)
+    setGenError('')
+    try {
+      const { demandData, totalLogs, periodStart, periodEnd } = computeReportData(period.days)
+      const res = await fetch('/api/generate-report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ timePeriodLabel: period.label, periodStart, periodEnd, totalLogs, demandData }),
+      })
+      const payload = await res.json().catch(() => ({}))
+      if (!res.ok || payload.error) throw new Error(payload.error || `HTTP ${res.status}`)
+      setEmail(payload.email)
+    } catch (err) {
+      setGenError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function copyEmail() {
+    try {
+      await navigator.clipboard.writeText(email)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {}
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/60 flex items-end justify-center" onClick={onClose}>
+      <div
+        className="w-full max-w-lg bg-white dark:bg-gray-900 rounded-t-2xl shadow-2xl flex flex-col max-h-[88dvh]"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-5 pt-5 pb-3 shrink-0 border-b border-gray-100 dark:border-gray-800">
+          <h2 className="text-base font-bold text-gray-900 dark:text-white">Generate Report</h2>
+          <button onClick={onClose} className="text-gray-400 text-2xl leading-none w-8 h-8 flex items-center justify-center">×</button>
+        </div>
+
+        <div className="overflow-y-auto flex-1 px-5 py-4 flex flex-col gap-4">
+          {!email && (
+            <>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">Time Period</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {REPORT_PERIODS.map(p => (
+                    <button
+                      key={p.label}
+                      onClick={() => setPeriod(p)}
+                      className={`py-3 rounded-xl text-sm font-semibold border-2 transition-colors ${
+                        period.label === p.label
+                          ? 'text-white border-transparent'
+                          : 'border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900'
+                      }`}
+                      style={period.label === p.label ? { background: BB_BLUE, borderColor: BB_BLUE } : {}}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {genError && <p className="text-xs text-red-500">{genError}</p>}
+
+              <button
+                onClick={generate}
+                disabled={loading}
+                className="w-full rounded-xl py-4 text-sm font-bold text-white disabled:opacity-50 flex items-center justify-center gap-2"
+                style={{ background: BB_BLUE }}
+              >
+                {loading && (
+                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                )}
+                {loading ? 'Generating…' : 'Generate Report'}
+              </button>
+            </>
+          )}
+
+          {email && !loading && (
+            <>
+              <div className="flex items-center justify-between shrink-0">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Report Preview</p>
+                <button
+                  onClick={() => { setEmail(''); setGenError('') }}
+                  className="text-xs text-gray-400 underline"
+                >
+                  ← Change period
+                </button>
+              </div>
+
+              <div
+                className="rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-4 overflow-y-auto flex-1"
+                style={{ maxHeight: 340 }}
+              >
+                <pre className="text-xs text-gray-800 dark:text-gray-200 whitespace-pre-wrap font-sans leading-relaxed">{email}</pre>
+              </div>
+
+              {genError && <p className="text-xs text-red-500 shrink-0">{genError}</p>}
+
+              <div className="flex gap-3 shrink-0">
+                <button
+                  onClick={generate}
+                  disabled={loading}
+                  className="flex-1 rounded-xl py-4 text-sm font-bold border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 disabled:opacity-50"
+                >
+                  Regenerate
+                </button>
+                <button
+                  onClick={copyEmail}
+                  className="flex-1 rounded-xl py-4 text-sm font-bold text-white"
+                  style={{ background: BB_BLUE }}
+                >
+                  {copied ? 'Copied!' : 'Copy Email'}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── DraggableFAB ─────────────────────────────────────────────────────────────
 
 function DraggableFAB({ onClick }) {
@@ -1020,6 +1219,7 @@ export default function TrackerView({
   variants, logs, restockItems,
   onSubmitLog, onDeleteLog, onAddRestockItem, onDeleteRestockItem,
   apiAllowed, onSetupVariants,
+  showReport, onCloseReport,
 }) {
   const [showSheet, setShowSheet] = useState(false)
   const [preselect, setPreselect] = useState(null)
@@ -1147,6 +1347,14 @@ export default function TrackerView({
           onClose={closeSheet}
           onSubmit={onSubmitLog}
           onAddRestockItem={onAddRestockItem}
+        />
+      )}
+
+      {showReport && (
+        <ReportSheet
+          logs={logs}
+          variants={variants}
+          onClose={onCloseReport}
         />
       )}
     </>

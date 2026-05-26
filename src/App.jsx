@@ -712,6 +712,7 @@ export default function App() {
   const [trackerVariants, setTrackerVariants] = useState([])
   const [trackerLogs, setTrackerLogs] = useState([])
   const [restockItems, setRestockItems] = useState([])
+  const [showTrackerReport, setShowTrackerReport] = useState(false)
 
   const loadAll = useCallback(async () => {
     const [
@@ -1046,6 +1047,15 @@ export default function App() {
           >
             ⚙
           </button>
+          {tab === 'tracker' && (
+            <button
+              onClick={() => setShowTrackerReport(true)}
+              className="text-xs font-semibold px-3 py-1.5 rounded-full text-white"
+              style={{ background: BB_BLUE }}
+            >
+              Report
+            </button>
+          )}
           {tab === 'compare' && view === 'select' && (
             <button onClick={() => { setEditProductId(null); setView('add') }} className="text-sm font-medium" style={{ color: BB_BLUE }}>
               + Add
@@ -1066,6 +1076,8 @@ export default function App() {
             onDeleteRestockItem={deleteRestockItem}
             apiAllowed={apiAllowed}
             onSetupVariants={setupVariants}
+            showReport={showTrackerReport}
+            onCloseReport={() => setShowTrackerReport(false)}
           />
         ) : (
           <>
