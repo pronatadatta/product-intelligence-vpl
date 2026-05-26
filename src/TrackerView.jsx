@@ -1264,8 +1264,10 @@ function ReportSheet({ logs, variants, onClose }) {
                               stackId="1"
                               stroke={color}
                               fill={color}
-                              fillOpacity={0.65}
-                              strokeWidth={1.5}
+                              fillOpacity={0.75}
+                              strokeWidth={2}
+                              dot={{ r: 3, fill: color, stroke: color }}
+                              activeDot={{ r: 5, fill: color, stroke: '#fff', strokeWidth: 2 }}
                             />
                           )
                         })}
