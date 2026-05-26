@@ -33,21 +33,29 @@ Subject: Demand Report Wearables | May 15 to May 25
 1. Whoop Life (MG) · Obsidian / SuperKnit Luxe: 7 requests (May 16 to May 24)
 2. Garmin Forerunner 165 Non-Music · Black/Slate Gray: 5 requests (May 17 to May 22)
 3. Garmin Vivoactive 6 42mm · Lunar Gold: 4 requests (May 16 to May 24)
+4. Oura Ring 4 · Titanium · Silver · Size 6: 4 requests (May 15 to May 23)
+5. Oura Ring 4 · Titanium · Silver · Size 8: 3 requests (May 16 to May 24)
+6. Oura Ring 4 · Titanium · Gold · Size 7: 2 requests (May 18 to May 22)
 
 **RESTOCK RECOMMENDATIONS:**
 I recommend restocking the following products:
 - Whoop Life (MG) · Obsidian / SuperKnit Luxe
 - Garmin Forerunner 165 Non-Music · Black/Slate Gray
-- Oura Ring 4 Titanium · Silver · Size 6 and Size 8, as these sizes have shown demand and are currently not fully stocked.
+- Oura Ring 4 · Titanium · Silver · Size 6
+- Oura Ring 4 · Titanium · Silver · Size 8
+- Oura Ring 4 · Titanium · Gold · Size 7
 
 **NOTABLE PATTERNS:**
 I see a high demand for Garmin Forerunner series and Oura Ring 4 in various sizes and colors. The data also suggests a preference for black, gray, and silver colors. As more data becomes available, it will be essential to monitor these trends and adjust inventory accordingly.
 ---END EXAMPLE---
 
-Rules:
+CRITICAL RULES — follow these exactly:
+- Every single row in the demand data gets its own numbered line in TOP DEMANDED PRODUCTS. Do not group, combine, or skip any entry.
+- Every single row in the demand data gets its own bullet in RESTOCK RECOMMENDATIONS. Do not group multiple sizes or colors onto one line. Each size and each color is a separate bullet.
+- Never summarize or merge rows. Oura Ring Size 6 and Size 8 are two separate bullets, not one bullet that says "Size 6 and Size 8".
 - Never use em dashes (—) anywhere in the output
-- Use · to separate product name from color/size details
-- Use / to separate multiple colors or variants within a detail
+- Use · to separate product name, variant, color, and size
+- Use / to separate multiple values within the same field (e.g. Black/Slate Gray)
 - Subject line format: Demand Report Wearables | ${periodStart} to ${periodEnd}
 - Intro is exactly one short sentence, no fluff
 - Section headers use **bold** with a colon at the end
@@ -55,13 +63,12 @@ Rules:
 - NOTABLE PATTERNS is a short conversational paragraph written in first person (I see, I notice, etc.)
 - No closing line or sign-off
 - Always generate the full report regardless of how much data there is
-- If data is limited, frame insights as early signals naturally
 
 Time period: ${timePeriodLabel}
 Date range: ${periodStart} to ${periodEnd}
 Total entries logged: ${totalLogs}
 
-Demand data from the sales floor:
+Demand data from the sales floor (each row = one separate product variant, list all of them):
 ${dataRows}`
 
   try {
@@ -77,8 +84,8 @@ ${dataRows}`
           { role: 'system', content: SYSTEM_PROMPT },
           { role: 'user', content: USER_PROMPT },
         ],
-        temperature: 0.5,
-        max_tokens: 1000,
+        temperature: 0.4,
+        max_tokens: 2000,
       }),
     })
 
