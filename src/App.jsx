@@ -712,6 +712,7 @@ export default function App() {
   const [trackerVariants, setTrackerVariants] = useState([])
   const [trackerLogs, setTrackerLogs] = useState([])
   const [restockItems, setRestockItems] = useState([])
+  const [savedReports, setSavedReports] = useState([])
   const [showTrackerReport, setShowTrackerReport] = useState(false)
 
   const loadAll = useCallback(async () => {
@@ -722,6 +723,7 @@ export default function App() {
       { data: tvars, error: tvarErr },
       { data: tlogs, error: tlogErr },
       { data: restock, error: restockErr },
+      { data: savedReps },
     ] = await Promise.all([
       supabase.from('products').select('*').order('brand').order('model'),
       supabase.from('specs').select('*').range(0, 49999),
@@ -729,6 +731,7 @@ export default function App() {
       supabase.from('tracker_variants').select('*'),
       supabase.from('tracker_logs').select('*').order('logged_at', { ascending: false }).limit(5000),
       supabase.from('restock_items').select('*').order('created_at', { ascending: false }),
+      supabase.from('saved_reports').select('*').order('created_at', { ascending: false }),
     ])
 
     if (tvarErr) console.error('tracker_variants error:', tvarErr)
@@ -745,6 +748,7 @@ export default function App() {
     setTrackerVariants(enrichedVariants)
     setTrackerLogs(tlogs ?? [])
     setRestockItems(restock ?? [])
+    setSavedReports(savedReps ?? [])
     const apiState = (state ?? []).find(s => s.key === 'allow_api_calls')
     setApiAllowed(apiState?.value === 'true')
   }, [])
@@ -889,6 +893,22 @@ export default function App() {
     await loadAll()
     return data
   }, [loadAll])
+
+  const saveReport = useCallback(async (periodLabel, periodStart, periodEnd, emailContent) => {
+    const { data, error } = await supabase.from('saved_reports').insert({
+      period_label: periodLabel,
+      period_start: periodStart,
+      period_end: periodEnd,
+      email_content: emailContent,
+    }).select().single()
+    if (error) throw new Error(`Save report failed: ${error.message}`)
+    setSavedReports(prev => [data, ...prev])
+  }, [])
+
+  const deleteSavedReport = useCallback(async (reportId) => {
+    await supabase.from('saved_reports').delete().eq('id', reportId)
+    setSavedReports(prev => prev.filter(r => r.id !== reportId))
+  }, [])
 
   const submitLog = useCallback(async (variantId, notes, customProduct) => {
     const { error } = await supabase.from('tracker_logs').insert({
@@ -1091,6 +1111,9 @@ export default function App() {
             onAddVariant={addVariant}
             showReport={showTrackerReport}
             onCloseReport={() => setShowTrackerReport(false)}
+            savedReports={savedReports}
+            onSaveReport={saveReport}
+            onDeleteSavedReport={deleteSavedReport}
           />
         ) : (
           <>

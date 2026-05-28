@@ -1141,7 +1141,7 @@ const REPORT_CHART_OPTS = [
   ['restock', 'Restock Priority'],
 ]
 
-function ReportSheet({ logs, variants, restockItems, onClose }) {
+function ReportSheet({ logs, variants, restockItems, onClose, savedReports = [], onSaveReport, onDeleteSavedReport }) {
   const variantMap = useMemo(() => Object.fromEntries(variants.map(v => [v.id, v])), [variants])
   const [period, setPeriod] = useState(REPORT_PERIODS[0])
   const [loading, setLoading] = useState(false)
@@ -1153,6 +1153,7 @@ function ReportSheet({ logs, variants, restockItems, onClose }) {
   const [selectedCharts, setSelectedCharts] = useState({ daily: true, brandShare: true, topProducts: true, restock: true })
   const [chartsCopied, setChartsCopied] = useState(false)
   const chartsRef = useRef(null)
+  const [savedIndicator, setSavedIndicator] = useState(false)
 
   const reportDays = period.days ?? 0
   const dailyData = useMemo(() => reportDailyData(logs, reportDays), [logs, reportDays])
@@ -1334,11 +1335,22 @@ function ReportSheet({ logs, variants, restockItems, onClose }) {
       const payload = await res.json().catch(() => ({}))
       if (!res.ok || payload.error) throw new Error(payload.error || `HTTP ${res.status}`)
       setEmail(payload.email)
+      try {
+        await onSaveReport?.(period.label, periodStart, periodEnd, payload.email)
+        setSavedIndicator(true)
+        setTimeout(() => setSavedIndicator(false), 2500)
+      } catch {}
     } catch (err) {
       setGenError(err.message)
     } finally {
       setLoading(false)
     }
+  }
+
+  function loadSavedReport(report) {
+    const matched = REPORT_PERIODS.find(p => p.label === report.period_label)
+    if (matched) setPeriod(matched)
+    setEmail(report.email_content)
   }
 
   async function copyEmail() {
@@ -1394,6 +1406,37 @@ function ReportSheet({ logs, variants, restockItems, onClose }) {
                 </button>
               </div>
 
+              {savedReports.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">Saved Reports</p>
+                  <div className="flex flex-col gap-2">
+                    {savedReports.map(r => (
+                      <div key={r.id} className="flex items-center gap-2 rounded-xl border border-gray-200 dark:border-gray-700 px-3 py-2.5 bg-white dark:bg-gray-900">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold text-gray-900 dark:text-white">{r.period_label}</p>
+                          <p className="text-[10px] text-gray-400 mt-0.5">
+                            {r.period_start} to {r.period_end} · {new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => loadSavedReport(r)}
+                          className="text-xs font-semibold px-3 py-1.5 rounded-full text-white shrink-0"
+                          style={{ background: BB_BLUE }}
+                        >
+                          Load
+                        </button>
+                        <button
+                          onClick={() => onDeleteSavedReport?.(r.id)}
+                          className="w-7 h-7 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800 text-gray-400 text-sm shrink-0"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {genError && <p className="text-xs text-red-500">{genError}</p>}
 
               <button
@@ -1413,7 +1456,10 @@ function ReportSheet({ logs, variants, restockItems, onClose }) {
           {email && !loading && (
             <>
               <div className="flex items-center justify-between shrink-0">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Report Preview</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Report Preview</p>
+                  {savedIndicator && <span className="text-[10px] font-semibold text-green-500">Saved ✓</span>}
+                </div>
                 <button
                   onClick={() => { setEmail(''); setGenError('') }}
                   className="text-xs text-gray-400 underline"
@@ -1655,6 +1701,7 @@ export default function TrackerView({
   onSubmitLog, onDeleteLog, onAddRestockItem, onDeleteRestockItem,
   apiAllowed, onSetupVariants, onAddVariant,
   showReport, onCloseReport,
+  savedReports, onSaveReport, onDeleteSavedReport,
 }) {
   const [showSheet, setShowSheet] = useState(false)
   const [preselect, setPreselect] = useState(null)
@@ -1792,6 +1839,9 @@ export default function TrackerView({
           variants={variants}
           restockItems={restockItems}
           onClose={onCloseReport}
+          savedReports={savedReports}
+          onSaveReport={onSaveReport}
+          onDeleteSavedReport={onDeleteSavedReport}
         />
       )}
     </>
