@@ -1424,9 +1424,9 @@ function ReportSheet({ logs, variants, restockItems, onClose }) {
 
               <div
                 className="rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-4 overflow-y-auto flex-1"
-                style={{ maxHeight: 340 }}
+                style={{ minHeight: 320, maxHeight: 480 }}
               >
-                <pre className="text-xs text-gray-800 dark:text-gray-200 whitespace-pre-wrap font-sans leading-relaxed">{email}</pre>
+                <pre className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap font-sans leading-relaxed">{email}</pre>
               </div>
 
               {genError && <p className="text-xs text-red-500 shrink-0">{genError}</p>}
