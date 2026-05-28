@@ -29,14 +29,14 @@ Subject: Demand Report Wearables | May 15 to May 25
 
  This report highlights the top demanded products and restock recommendations
 
-**TOP DEMANDED PRODUCTS:**
+TOP DEMANDED PRODUCTS:
 1. Oura Ring 4 · Titanium · Gold · Sizes 6, 7, 9, 10: 14 requests (May 15 to May 24)
 2. Oura Ring 4 · Titanium · Silver · Sizes 8, 9: 9 requests (May 16 to May 23)
 3. Whoop Life (MG) · Obsidian / SuperKnit Luxe: 7 requests (May 16 to May 24)
 4. Garmin Forerunner 165 Non-Music · Black/Slate Gray: 5 requests (May 17 to May 22)
 5. Garmin Vivoactive 6 42mm · Lunar Gold: 4 requests (May 16 to May 24)
 
-**RESTOCK RECOMMENDATIONS:**
+RESTOCK RECOMMENDATIONS:
 I recommend restocking the following products:
 - Oura Ring 4 · Titanium · Gold · Sizes 6, 7, 9, 10
 - Oura Ring 4 · Titanium · Silver · Sizes 8, 9
@@ -44,7 +44,7 @@ I recommend restocking the following products:
 - Garmin Forerunner 165 Non-Music · Black/Slate Gray
 - Garmin Vivoactive 6 42mm · Lunar Gold
 
-**NOTABLE PATTERNS:**
+NOTABLE PATTERNS:
 I see strong demand for Oura Ring 4 across multiple sizes in both Gold and Silver. Sizes 6 through 10 are moving consistently. Garmin Forerunner and Vivoactive are also showing solid floor activity this period.
 ---END EXAMPLE---
 
@@ -56,7 +56,7 @@ GROUPING RULES — follow these exactly:
 - Use / to separate multiple values within the same field (e.g. Black/Slate Gray)
 - Subject line format: Demand Report Wearables | ${periodStart} to ${periodEnd}
 - Intro is exactly one short sentence, no fluff
-- Section headers use **bold** with a colon at the end
+- Section headers are plain uppercase text with a colon at the end, no asterisks or markdown
 - RESTOCK RECOMMENDATIONS starts with "I recommend restocking the following products:"
 - Restock bullets follow the same grouping — one line per product+variant+color, listing all sizes together
 - NOTABLE PATTERNS is a short conversational paragraph written in first person (I see, I notice, etc.)
