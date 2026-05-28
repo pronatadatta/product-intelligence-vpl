@@ -1,5 +1,9 @@
 import { useState, useMemo, useRef } from 'react'
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
+import {
+  AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
+  XAxis, YAxis, Tooltip, ResponsiveContainer, LabelList,
+} from 'recharts'
+import { toBlob } from 'html-to-image'
 
 const BB_BLUE = '#0046BE'
 
@@ -1033,7 +1037,111 @@ const REPORT_PERIODS = [
   { label: 'All Time', days: null },
 ]
 
-function ReportSheet({ logs, variants, onClose }) {
+// ── Chart aggregations for the report (days falsy = all time) ──
+function filterLogsSinceDays(logs, days) {
+  if (!days) return logs
+  const cutoff = new Date()
+  cutoff.setDate(cutoff.getDate() - days)
+  cutoff.setHours(0, 0, 0, 0)
+  return logs.filter(l => new Date(l.logged_at) >= cutoff)
+}
+
+function logBrandOf(log, v) {
+  if (v) return v.product.brand
+  if (log.custom_product) return log.custom_product.split(' ')[0]
+  return 'Unknown'
+}
+
+function logProductOf(log, v) {
+  if (v) return `${v.product.brand} ${v.product.model}`
+  return log.custom_product || 'Unknown'
+}
+
+function reportDailyData(logs, days) {
+  const map = {}
+  for (const log of filterLogsSinceDays(logs, days)) {
+    if (isOffDay(log.logged_at)) continue
+    const bk = formatLocalDate(new Date(log.logged_at))
+    map[bk] = (map[bk] || 0) + 1
+  }
+  return Object.keys(map).sort().map(bk => ({
+    date: new Date(bk + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+    count: map[bk],
+  }))
+}
+
+function reportBrandShare(logs, variantMap, variants, days) {
+  const productByName = buildProductNameMap(variants)
+  const counts = {}
+  for (const log of filterLogsSinceDays(logs, days)) {
+    const v = resolveVariant(log, variantMap, productByName)
+    const brand = logBrandOf(log, v)
+    counts[brand] = (counts[brand] || 0) + 1
+  }
+  const total = Object.values(counts).reduce((a, b) => a + b, 0)
+  return Object.entries(counts)
+    .map(([name, value]) => ({ name, value, pct: total ? Math.round((value / total) * 100) : 0 }))
+    .sort((a, b) => b.value - a.value)
+}
+
+function reportTopProducts(logs, variantMap, variants, days, n) {
+  const productByName = buildProductNameMap(variants)
+  const counts = {}
+  for (const log of filterLogsSinceDays(logs, days)) {
+    const v = resolveVariant(log, variantMap, productByName)
+    const name = logProductOf(log, v)
+    counts[name] = (counts[name] || 0) + 1
+  }
+  return Object.entries(counts).map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count).slice(0, n)
+}
+
+function reportRestockPriority(restockItems, logs, variantMap, variants, days, n) {
+  const productByName = buildProductNameMap(variants)
+  const demand = {}
+  for (const log of filterLogsSinceDays(logs, days)) {
+    const v = resolveVariant(log, variantMap, productByName)
+    demand[logProductOf(log, v)] = (demand[logProductOf(log, v)] || 0) + 1
+  }
+  const names = new Set()
+  for (const item of restockItems) {
+    const v = resolveVariant({ variant_id: item.variant_id, custom_product: item.custom_product }, variantMap, productByName)
+    names.add(v ? `${v.product.brand} ${v.product.model}` : (item.custom_product || 'Unknown'))
+  }
+  return [...names].map(name => ({ name, count: demand[name] || 0 }))
+    .sort((a, b) => b.count - a.count).slice(0, n)
+}
+
+function ReportBlock({ title, children }) {
+  return (
+    <div>
+      <h3 style={{ fontSize: 13, fontWeight: 700, color: '#1f2937', marginBottom: 6 }}>{title}</h3>
+      {children}
+    </div>
+  )
+}
+
+function ReportLegend({ items }) {
+  return (
+    <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
+      {items.map(it => (
+        <span key={it.name} className="flex items-center gap-1.5" style={{ fontSize: 11, color: '#374151' }}>
+          <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: it.color }} />
+          {it.name}{it.detail ? ` ${it.detail}` : ''}
+        </span>
+      ))}
+    </div>
+  )
+}
+
+const REPORT_CHART_OPTS = [
+  ['daily', 'Demand by Day'],
+  ['brandShare', 'Brand Share'],
+  ['topProducts', 'Top Products'],
+  ['restock', 'Restock Priority'],
+]
+
+function ReportSheet({ logs, variants, restockItems, onClose }) {
   const variantMap = useMemo(() => Object.fromEntries(variants.map(v => [v.id, v])), [variants])
   const [period, setPeriod] = useState(REPORT_PERIODS[0])
   const [loading, setLoading] = useState(false)
@@ -1042,6 +1150,28 @@ function ReportSheet({ logs, variants, onClose }) {
   const [copied, setCopied] = useState(false)
   const [chartCopied, setChartCopied] = useState(false)
   const chartRef = useRef(null)
+  const [selectedCharts, setSelectedCharts] = useState({ daily: true, brandShare: true, topProducts: true, restock: true })
+  const [chartsCopied, setChartsCopied] = useState(false)
+  const chartsRef = useRef(null)
+
+  const reportDays = period.days ?? 0
+  const dailyData = useMemo(() => reportDailyData(logs, reportDays), [logs, reportDays])
+  const brandShareData = useMemo(() => reportBrandShare(logs, variantMap, variants, reportDays), [logs, variantMap, variants, reportDays])
+  const topProductsData = useMemo(() => reportTopProducts(logs, variantMap, variants, reportDays, 8), [logs, variantMap, variants, reportDays])
+  const restockData = useMemo(() => reportRestockPriority(restockItems ?? [], logs, variantMap, variants, reportDays, 8), [restockItems, logs, variantMap, variants, reportDays])
+
+  async function copyCharts() {
+    if (!chartsRef.current) return
+    try {
+      const blob = await toBlob(chartsRef.current, { backgroundColor: '#ffffff', pixelRatio: 2 })
+      if (!blob) throw new Error('render failed')
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
+      setChartsCopied(true)
+      setTimeout(() => setChartsCopied(false), 2000)
+    } catch (err) {
+      console.error('charts copy failed:', err)
+    }
+  }
 
   const chartData = useMemo(() => {
     if (!email) return null
@@ -1352,6 +1482,91 @@ function ReportSheet({ logs, variants, onClose }) {
                 </div>
               )}
 
+              {/* Selectable charts */}
+              <div className="shrink-0">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Charts</p>
+                  <button
+                    onClick={copyCharts}
+                    className="text-xs font-semibold px-3 py-1 rounded-full border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300"
+                  >
+                    {chartsCopied ? 'Copied!' : 'Copy Charts'}
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {REPORT_CHART_OPTS.map(([k, label]) => (
+                    <button
+                      key={k}
+                      onClick={() => setSelectedCharts(s => ({ ...s, [k]: !s[k] }))}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${selectedCharts[k] ? 'text-white border-transparent' : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300'}`}
+                      style={selectedCharts[k] ? { background: BB_BLUE } : {}}
+                    >
+                      {selectedCharts[k] ? '✓ ' : ''}{label}
+                    </button>
+                  ))}
+                </div>
+                <div
+                  ref={chartsRef}
+                  style={{ background: '#ffffff', borderRadius: 12, border: '1px solid #e5e7eb', padding: 16, display: 'flex', flexDirection: 'column', gap: 20 }}
+                >
+                  {selectedCharts.daily && dailyData.length > 0 && (
+                    <ReportBlock title="Demand by Day">
+                      <ResponsiveContainer width="100%" height={170}>
+                        <BarChart data={dailyData} margin={{ top: 14, right: 8, left: -18, bottom: 0 }}>
+                          <XAxis dataKey="date" tick={{ fontSize: 9, fill: '#6b7280' }} tickLine={false} axisLine={false} />
+                          <YAxis tick={{ fontSize: 9, fill: '#6b7280' }} tickLine={false} axisLine={false} allowDecimals={false} />
+                          <Bar dataKey="count" fill={BB_BLUE} radius={[4, 4, 0, 0]} isAnimationActive={false}>
+                            <LabelList dataKey="count" position="top" fontSize={9} fill="#374151" />
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </ReportBlock>
+                  )}
+                  {selectedCharts.brandShare && brandShareData.length > 0 && (
+                    <ReportBlock title="Brand Share">
+                      <ResponsiveContainer width="100%" height={200}>
+                        <PieChart>
+                          <Pie data={brandShareData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} isAnimationActive={false}>
+                            {brandShareData.map((e, i) => <Cell key={e.name} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                          </Pie>
+                        </PieChart>
+                      </ResponsiveContainer>
+                      <ReportLegend items={brandShareData.map((b, i) => ({ name: b.name, color: CHART_COLORS[i % CHART_COLORS.length], detail: `${b.pct}% (${b.value})` }))} />
+                    </ReportBlock>
+                  )}
+                  {selectedCharts.topProducts && topProductsData.length > 0 && (
+                    <ReportBlock title="Top Products">
+                      <ResponsiveContainer width="100%" height={Math.max(110, topProductsData.length * 30)}>
+                        <BarChart data={topProductsData} layout="vertical" margin={{ top: 4, right: 28, left: 8, bottom: 4 }}>
+                          <XAxis type="number" hide allowDecimals={false} />
+                          <YAxis type="category" dataKey="name" width={150} tick={{ fontSize: 9, fill: '#374151' }} tickLine={false} axisLine={false} />
+                          <Bar dataKey="count" fill={BB_BLUE} radius={[0, 4, 4, 0]} isAnimationActive={false}>
+                            <LabelList dataKey="count" position="right" fontSize={9} fill="#374151" />
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </ReportBlock>
+                  )}
+                  {selectedCharts.restock && (
+                    <ReportBlock title="Restock Priority">
+                      {restockData.length === 0 ? (
+                        <p style={{ fontSize: 11, color: '#9ca3af' }}>Nothing on the restock list yet.</p>
+                      ) : (
+                        <ResponsiveContainer width="100%" height={Math.max(110, restockData.length * 30)}>
+                          <BarChart data={restockData} layout="vertical" margin={{ top: 4, right: 28, left: 8, bottom: 4 }}>
+                            <XAxis type="number" hide allowDecimals={false} />
+                            <YAxis type="category" dataKey="name" width={150} tick={{ fontSize: 9, fill: '#374151' }} tickLine={false} axisLine={false} />
+                            <Bar dataKey="count" fill="#e63946" radius={[0, 4, 4, 0]} isAnimationActive={false}>
+                              <LabelList dataKey="count" position="right" fontSize={9} fill="#374151" />
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      )}
+                    </ReportBlock>
+                  )}
+                </div>
+              </div>
+
               <div className="flex gap-3 shrink-0">
                 <button
                   onClick={generate}
@@ -1575,6 +1790,7 @@ export default function TrackerView({
         <ReportSheet
           logs={logs}
           variants={variants}
+          restockItems={restockItems}
           onClose={onCloseReport}
         />
       )}
