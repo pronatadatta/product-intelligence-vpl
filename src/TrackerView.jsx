@@ -9,6 +9,13 @@ const CHART_COLORS = [
   '#8338ec', '#52b788', '#e9c46a', '#457b9d', '#d62828',
 ]
 
+// Days the user is off (no demand is logged): Tuesday(2) & Wednesday(3).
+// Excluded from day-level charts so empty days off don't read as zero demand.
+const OFF_DAYS = new Set([2, 3])
+function isOffDay(ts) {
+  return OFF_DAYS.has(new Date(ts).getDay())
+}
+
 // ─── Date helpers ─────────────────────────────────────────────────────────────
 
 function getWeekStart(date) {
@@ -107,6 +114,7 @@ function buildChartData(logs, variantMap, variants, range, drilldown) {
   const groupKeys = new Set()
 
   for (const log of filtered) {
+    if (range === 'daily' && isOffDay(log.logged_at)) continue
     const bk = getBucketKey(log.logged_at, range)
     const gk = getGroupKey(log, variantMap, productByName, drilldown)
     groupKeys.add(gk)
@@ -172,7 +180,7 @@ function chipLabel(v) {
 
 // ─── TrackerLogSheet ──────────────────────────────────────────────────────────
 
-function TrackerLogSheet({ variants, logs, onClose, onSubmit, onAddRestockItem, preselect }) {
+function TrackerLogSheet({ variants, logs, onClose, onSubmit, onAddRestockItem, onAddVariant, preselect }) {
   const [mode, setMode] = useState(preselect?.mode ?? 'log')
   const [search, setSearch] = useState('')
   const [brand, setBrand] = useState(preselect?.brand ?? '')
@@ -187,6 +195,9 @@ function TrackerLogSheet({ variants, logs, onClose, onSubmit, onAddRestockItem, 
   const [successLabel, setSuccessLabel] = useState('')
   const [customMode, setCustomMode] = useState(preselect?.customMode ?? false)
   const [customProduct, setCustomProduct] = useState(preselect?.customProduct ?? '')
+  const [addingVariant, setAddingVariant] = useState(false)
+  const [newColor, setNewColor] = useState('')
+  const [newSize, setNewSize] = useState('')
 
   const variantMap = useMemo(() => Object.fromEntries(variants.map(v => [v.id, v])), [variants])
 
@@ -258,6 +269,11 @@ function TrackerLogSheet({ variants, logs, onClose, onSubmit, onAddRestockItem, 
     return { brand, model, variant: variantText }
   }, [brand, model, variantText, variantTexts])
 
+  const productId = useMemo(() => {
+    if (!brand || !model) return null
+    return variants.find(v => v.product.brand === brand && v.product.model === model)?.product_id ?? null
+  }, [variants, brand, model])
+
   const searchResults = useMemo(() => {
     if (!search.trim()) return []
     const q = search.toLowerCase()
@@ -296,10 +312,11 @@ function TrackerLogSheet({ variants, logs, onClose, onSubmit, onAddRestockItem, 
 
   function reset() {
     setBrand(''); setModel(''); setVariantText(''); setColor(''); setSize(''); setNotes(''); setSearch('')
+    setAddingVariant(false); setNewColor(''); setNewSize('')
   }
 
   async function handleSubmit() {
-    if (customMode ? !customProduct.trim() : !matched && !partialMatch) return
+    if (customMode ? !customProduct.trim() : addingVariant ? (!newColor.trim() || !productId) : (!matched && !partialMatch)) return
     setSubmitting(true)
     setSubmitError('')
     try {
@@ -309,6 +326,10 @@ function TrackerLogSheet({ variants, logs, onClose, onSubmit, onAddRestockItem, 
       if (customMode) {
         customStr = customProduct.trim()
         label = customStr
+      } else if (addingVariant && newColor.trim() && productId) {
+        const inserted = await onAddVariant({ productId, color: newColor.trim(), variantText: variantText || null, size: newSize.trim() || null })
+        variantId = inserted.id
+        label = [brand, model, newColor.trim(), newSize.trim()].filter(Boolean).join(' · ')
       } else if (matched) {
         variantId = matched.id
         label = [matched.product.brand, matched.product.model, matched.color, matched.size].filter(Boolean).join(' · ')
@@ -494,17 +515,56 @@ function TrackerLogSheet({ variants, logs, onClose, onSubmit, onAddRestockItem, 
               </div>
             )}
 
-            {model && (variantTexts.length === 0 || variantText) && colors.length > 0 && (
+            {model && (variantTexts.length === 0 || variantText) && (
               <div>
                 <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5 block">Color <span className="normal-case font-normal">(optional)</span></label>
-                <select value={color} onChange={e => { setColor(e.target.value); setSize('') }} className={sel}>
-                  <option value="">Select color…</option>
-                  {colors.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
+                {!addingVariant && (
+                  <>
+                    {colors.length > 0 && (
+                      <select value={color} onChange={e => { setColor(e.target.value); setSize('') }} className={sel}>
+                        <option value="">Select color…</option>
+                        {colors.map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => { setAddingVariant(true); setColor(''); setSize('') }}
+                      className="mt-1.5 text-xs font-medium text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+                    >
+                      + Color not listed? Add it
+                    </button>
+                  </>
+                )}
+                {addingVariant && (
+                  <div className="flex flex-col gap-2">
+                    <input
+                      type="text"
+                      value={newColor}
+                      onChange={e => setNewColor(e.target.value)}
+                      placeholder="Color (e.g. Black, Rose Gold…)"
+                      autoFocus
+                      className="w-full rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 py-3 text-sm text-gray-900 dark:text-white focus:outline-none"
+                    />
+                    <input
+                      type="text"
+                      value={newSize}
+                      onChange={e => setNewSize(e.target.value)}
+                      placeholder="Size (optional, e.g. 42mm)"
+                      className="w-full rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 py-3 text-sm text-gray-900 dark:text-white focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => { setAddingVariant(false); setNewColor(''); setNewSize('') }}
+                      className="text-xs text-gray-400 self-start"
+                    >
+                      ← Back to color list
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
-            {needsSize && color && (
+            {!addingVariant && needsSize && color && (
               <div>
                 <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5 block">Size</label>
                 <select value={size} onChange={e => setSize(e.target.value)} className={sel}>
@@ -516,16 +576,22 @@ function TrackerLogSheet({ variants, logs, onClose, onSubmit, onAddRestockItem, 
           </div>}
 
           {/* Selected product summary */}
-          {!customMode && (matched || partialMatch) && (
+          {!customMode && (addingVariant ? (newColor.trim() && productId) : (matched || partialMatch)) && (
             <div className="rounded-xl border-2 p-3 flex items-start justify-between gap-3" style={{ borderColor: BB_BLUE }}>
               <div>
                 <p className="text-xs font-bold text-gray-900 dark:text-white">
-                  {matched
-                    ? `${matched.product.brand} ${matched.product.model}${matched.variant ? ` · ${matched.variant}` : ''}`
-                    : `${partialMatch.brand} ${partialMatch.model}${partialMatch.variant ? ` · ${partialMatch.variant}` : ''}`}
+                  {addingVariant
+                    ? `${brand} ${model}${variantText ? ` · ${variantText}` : ''}`
+                    : matched
+                      ? `${matched.product.brand} ${matched.product.model}${matched.variant ? ` · ${matched.variant}` : ''}`
+                      : `${partialMatch.brand} ${partialMatch.model}${partialMatch.variant ? ` · ${partialMatch.variant}` : ''}`}
                 </p>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  {matched ? [matched.color, matched.size].filter(Boolean).join(' · ') : 'Any color'}
+                  {addingVariant
+                    ? [newColor.trim(), newSize.trim()].filter(Boolean).join(' · ') + ' (new variant)'
+                    : matched
+                      ? [matched.color, matched.size].filter(Boolean).join(' · ')
+                      : 'Any color'}
                 </p>
               </div>
               <button onClick={reset} className="text-xs text-gray-400 shrink-0">Reset</button>
@@ -533,7 +599,7 @@ function TrackerLogSheet({ variants, logs, onClose, onSubmit, onAddRestockItem, 
           )}
 
           {/* Notes */}
-          {(matched || partialMatch || customMode) && (
+          {(matched || partialMatch || customMode || (addingVariant && newColor.trim())) && (
             <div>
               <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5 block">Notes (optional)</label>
               <input
@@ -560,7 +626,7 @@ function TrackerLogSheet({ variants, logs, onClose, onSubmit, onAddRestockItem, 
             </button>
             <button
               onClick={handleSubmit}
-              disabled={customMode ? !customProduct.trim() || submitting : (!matched && !partialMatch) || submitting}
+              disabled={submitting || (customMode ? !customProduct.trim() : addingVariant ? (!newColor.trim() || !productId) : (!matched && !partialMatch))}
               className="flex-1 rounded-xl py-4 text-sm font-bold text-white transition-opacity disabled:opacity-40"
               style={{ background: BB_BLUE }}
             >
@@ -987,6 +1053,7 @@ function ReportSheet({ logs, variants, onClose }) {
     const brandSet = new Set()
     for (const log of filtered) {
       if (!log.variant_id) continue
+      if (range === 'daily' && isOffDay(log.logged_at)) continue
       const v = variantMap[log.variant_id]
       if (!v?.product) continue
       const bk = getBucketKey(log.logged_at, range)
@@ -1371,7 +1438,7 @@ function DraggableFAB({ onClick }) {
 export default function TrackerView({
   variants, logs, restockItems,
   onSubmitLog, onDeleteLog, onAddRestockItem, onDeleteRestockItem,
-  apiAllowed, onSetupVariants,
+  apiAllowed, onSetupVariants, onAddVariant,
   showReport, onCloseReport,
 }) {
   const [showSheet, setShowSheet] = useState(false)
@@ -1500,6 +1567,7 @@ export default function TrackerView({
           onClose={closeSheet}
           onSubmit={onSubmitLog}
           onAddRestockItem={onAddRestockItem}
+          onAddVariant={onAddVariant}
         />
       )}
 

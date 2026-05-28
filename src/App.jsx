@@ -878,6 +878,18 @@ export default function App() {
     await loadAll()
   }, [apiAllowed, loadAll])
 
+  const addVariant = useCallback(async ({ productId, color, variantText, size }) => {
+    const { data, error } = await supabase.from('tracker_variants').insert({
+      product_id: productId,
+      color: color ?? null,
+      variant: variantText ?? null,
+      size: size ?? null,
+    }).select().single()
+    if (error) throw new Error(`Variant insert failed: ${error.message}`)
+    await loadAll()
+    return data
+  }, [loadAll])
+
   const submitLog = useCallback(async (variantId, notes, customProduct) => {
     const { error } = await supabase.from('tracker_logs').insert({
       variant_id: variantId ?? null,
@@ -1076,6 +1088,7 @@ export default function App() {
             onDeleteRestockItem={deleteRestockItem}
             apiAllowed={apiAllowed}
             onSetupVariants={setupVariants}
+            onAddVariant={addVariant}
             showReport={showTrackerReport}
             onCloseReport={() => setShowTrackerReport(false)}
           />
