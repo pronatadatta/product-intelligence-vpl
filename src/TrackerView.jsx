@@ -1335,11 +1335,10 @@ function ReportSheet({ logs, variants, restockItems, onClose, savedReports = [],
       const payload = await res.json().catch(() => ({}))
       if (!res.ok || payload.error) throw new Error(payload.error || `HTTP ${res.status}`)
       setEmail(payload.email)
-      try {
-        await onSaveReport?.(period.label, periodStart, periodEnd, payload.email)
-        setSavedIndicator(true)
-        setTimeout(() => setSavedIndicator(false), 2500)
-      } catch {}
+      setSavedIndicator(true)
+      setTimeout(() => setSavedIndicator(false), 2500)
+      onSaveReport?.(period.label, periodStart, periodEnd, payload.email)
+        .catch(err => console.error('Save report failed:', err))
     } catch (err) {
       setGenError(err.message)
     } finally {
